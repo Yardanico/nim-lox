@@ -30,13 +30,16 @@ type
     tokens: seq[Token]
     start, current, line: int
 
+using
+  s: Scanner
+  kind: TokenKind
 
 proc newScanner*(src: string): Scanner = 
   Scanner(source: src, line: 1)
 
 
 # TODO: Use stdlib functions instead of these
-proc isAtEnd(s: Scanner): bool = 
+proc isAtEnd(s): bool = 
   s.current >= s.source.len
 
 proc isDigit(c: char): bool = 
@@ -45,18 +48,18 @@ proc isDigit(c: char): bool =
 proc isAlnum(c: char): bool = 
   c in Letters + Digits + {'_'}
 
-proc advance(s: Scanner): char {.discardable.} = 
+proc advance(s): char {.discardable.} = 
   inc s.current
   return s.source[s.current-1]
 
-proc getText(s: Scanner): string = 
+proc getText(s): string = 
   s.source[s.start..s.current-1]
 
-proc addToken(s: Scanner, kind: TokenKind) = 
+proc addToken(s, kind) = 
   let text = s.getText()
   s.tokens.add initTok(kind, text, s.line)
 
-proc addToken(s: Scanner, kind: TokenKind, lit: string | float) = 
+proc addToken(s, kind; lit: string | float) = 
   # TODO: Do we really need to get text?
   let text = s.getText()
   when lit is string:
@@ -65,7 +68,7 @@ proc addToken(s: Scanner, kind: TokenKind, lit: string | float) =
     s.tokens.add initNumTok(lit, s.line, text)
 
 
-proc match(s: Scanner, expected: char): bool = 
+proc match(s; expected: char): bool = 
   result = false
   if s.isAtEnd(): return
   if s.source[s.current] != expected: return
@@ -73,16 +76,16 @@ proc match(s: Scanner, expected: char): bool =
   inc s.current
   result = true
 
-proc peek(s: Scanner): char = 
+proc peek(s): char = 
   if s.isAtEnd(): '\0'
   else: s.source[s.current]
 
-proc peekNext(s: Scanner): char = 
+proc peekNext(s): char = 
   if s.current + 1 >= s.source.len: '\0'
   else: s.source[s.current+1]
 
 
-proc string(s: Scanner) = 
+proc string(s) = 
   while s.peek() != '"' and not s.isAtEnd():
     if s.peek == '\n': inc s.line
     s.advance()
@@ -97,7 +100,7 @@ proc string(s: Scanner) =
   let val = s.source[s.start+1 .. s.current-2]
   s.addToken(String, val)
 
-proc number(s: Scanner) = 
+proc number(s) = 
   while s.peek().isDigit(): 
     s.advance()
 
@@ -110,7 +113,7 @@ proc number(s: Scanner) =
   
   s.addToken(Number, parseFloat(s.getText()))
 
-proc ident(s: Scanner) = 
+proc ident(s) = 
   while s.peek().isAlnum():
     s.advance()
   
@@ -120,7 +123,7 @@ proc ident(s: Scanner) =
   s.addToken(if tokType == Eof: Identifier else: tokType)
 
 
-proc scanToken(s: Scanner) = 
+proc scanToken(s) = 
   let c = s.advance()
   case c
   of '(': s.addToken(LeftParen)
@@ -166,7 +169,7 @@ proc scanToken(s: Scanner) =
   else:
     error(s.line, "Unexpected character.")
 
-proc scanTokens*(s: Scanner): seq[Token] = 
+proc scanTokens*(s): seq[Token] = 
   while not s.isAtEnd():
     s.start = s.current
     s.scanToken()

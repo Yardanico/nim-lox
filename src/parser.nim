@@ -4,29 +4,32 @@ type
   Parser = ref object
     tokens: seq[Token]
     current: int
-  
+
   ParseError* = ref object of ValueError
 
-proc peek(p: Parser): Token = 
+using
+  p: Parser
+
+proc peek(p): Token = 
   p.tokens[p.current]
 
-proc previous(p: Parser): Token = 
+proc previous(p): Token = 
   p.tokens[p.current-1]
 
-proc isAtEnd(p: Parser): bool = 
+proc isAtEnd(p): bool = 
   p.peek().kind == Eof
 
 
-proc advance(p: Parser): Token {.discardable.} = 
+proc advance(p): Token {.discardable.} = 
   if not p.isAtEnd():
     inc p.current
   return p.previous()
 
-proc check(p: Parser, kind: TokenKind): bool = 
+proc check(p; kind: TokenKind): bool = 
   if p.isAtEnd(): return
   p.peek().kind == kind
 
-proc match(p: Parser, kinds: varargs[TokenKind]): bool = 
+proc match(p; kinds: varargs[TokenKind]): bool = 
   for kind in kinds:
     if p.check(kind):
       p.advance()
@@ -37,7 +40,7 @@ proc error(tok: Token, msg: string): ParseError =
 
   return ParseError()
 
-proc synchronize(p: Parser) = 
+proc synchronize(p) = 
   p.advance()
 
   while not p.isAtEnd():
@@ -51,18 +54,18 @@ proc synchronize(p: Parser) =
   p.advance()
 
 
-proc consume(p: Parser, kind: TokenKind, msg: string): Token {.discardable.} = 
+proc consume(p; kind: TokenKind, msg: string): Token {.discardable.} = 
   if p.check(kind): p.advance()
   else: raise error(p.peek(), msg)
 
 # Forward declarations
-proc expression(p: Parser): Expr
-proc equality(p: Parser): Expr
-proc comparison(p: Parser): Expr
-proc addition(p: Parser): Expr
-proc multiplication(p: Parser): Expr
+proc expression(p): Expr
+proc equality(p): Expr
+proc comparison(p): Expr
+proc addition(p): Expr
+proc multiplication(p): Expr
 
-proc primary(p: Parser): Expr = 
+proc primary(p): Expr = 
   # TODO: Use case statement here
   if p.match(False, True):
     Expr(
@@ -99,7 +102,7 @@ proc primary(p: Parser): Expr =
   else:
     raise error(p.peek(), "Expect expression.")
 
-proc unary(p: Parser): Expr = 
+proc unary(p): Expr = 
   if p.match(Bang, Minus):
     let op = p.previous()
     let right = p.unary()
@@ -108,7 +111,7 @@ proc unary(p: Parser): Expr =
   return p.primary()
 
 # TODO: Unify these 4 (via a template I guess)
-proc multiplication(p: Parser): Expr = 
+proc multiplication(p): Expr = 
   result = p.unary()
 
   while p.match(Slash, Star):
@@ -116,7 +119,7 @@ proc multiplication(p: Parser): Expr =
     let right = p.unary()
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
-proc addition(p: Parser): Expr = 
+proc addition(p): Expr = 
   result = p.multiplication()
 
   while p.match(Minus, Plus):
@@ -124,7 +127,7 @@ proc addition(p: Parser): Expr =
     let right = p.multiplication()
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
-proc comparison(p: Parser): Expr = 
+proc comparison(p): Expr = 
   result = p.addition()
 
   while p.match(Greater, GreaterEqual, Less, LessEqual):
@@ -132,7 +135,7 @@ proc comparison(p: Parser): Expr =
     let right = p.addition()
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
-proc equality(p: Parser): Expr = 
+proc equality(p): Expr = 
   result = p.comparison()
 
   while p.match(BangEqual, EqualEqual):
@@ -141,7 +144,7 @@ proc equality(p: Parser): Expr =
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right) 
 
 # ex.2 ch. 6
-proc ternary(p: Parser): Expr = 
+proc ternary(p): Expr = 
   result = p.equality()
   while p.match(QuestionMark):
     let trueBranch = p.ternary()
@@ -155,7 +158,7 @@ proc ternary(p: Parser): Expr =
     )
 
 # ex.1 ch. 6
-proc comma(p: Parser): Expr = 
+proc comma(p): Expr = 
   result = p.ternary()
 
   while p.match(Comma):
@@ -163,10 +166,10 @@ proc comma(p: Parser): Expr =
     let right = p.equality()
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
-proc expression(p: Parser): Expr = 
+proc expression(p): Expr = 
   p.comma()
 
-proc parse*(p: Parser): Expr = 
+proc parse*(p): Expr = 
   try:
     return p.expression()
   except ParseError:

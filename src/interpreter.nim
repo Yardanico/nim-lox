@@ -15,13 +15,19 @@ type
 type
   Interpreter* = ref object
 
-proc isTruthy(v: LoxValue): bool =
+using
+  i: Interpreter
+  op: Token
+  v, l, r: LoxValue
+  e: Expr
+
+proc isTruthy(v): bool =
   # Everything except Nil is true
   if v.kind == Nil: false
   elif v.kind == Bool: v.boolVal
   else: true
 
-proc `==`(l, r: LoxValue): bool = 
+proc `==`(l, r): bool = 
   # Nil is only equal to nil
   if l.kind == Nil and r.kind == Nil: true
   # Nil is always false
@@ -32,19 +38,19 @@ proc `==`(l, r: LoxValue): bool =
   # Otherwise false
   else: false
 
-proc checkNumberOperand(op: Token, v: LoxValue) = 
+proc checkNumberOperand(op, v) = 
   if v.kind == Number: return
   raise RuntimeError(tok: op, msg: "Operand must be a number.")
 
-proc checkNumberOperands(op: Token, l, r: LoxValue) = 
+proc checkNumberOperands(op, l, r) = 
   if l.kind == Number and r.kind == Number: return
   raise RuntimeError(tok: op, msg: "Operand must be a number.")
 
-proc visit(i: Interpreter, e: Expr): LoxValue
+proc visit(i, e): LoxValue
 
-proc `$`(v: LoxValue): string
+proc `$`(v): string
 
-proc visitBinary(i: Interpreter, e: Expr): LoxValue = 
+proc visitBinary(i, e): LoxValue = 
   let left = i.visit(e.binLeft)
   let right = i.visit(e.binRight)
   result = LoxValue(kind: Number)
@@ -94,24 +100,24 @@ proc visitBinary(i: Interpreter, e: Expr): LoxValue =
     return LoxValue(kind: Bool, boolVal: left == right)
   else: return
 
-proc visitGrouping(i: Interpreter, e: Expr): LoxValue = 
+proc visitGrouping(i, e): LoxValue = 
   i.visit(e.grpExpr)
 
-proc visitTernary(i: Interpreter, e: Expr): LoxValue = 
+proc visitTernary(i, e): LoxValue = 
   let val = i.visit(e.ternExpr)
   # Short-circuit evaluation
   result = 
     if val.isTruthy(): i.visit(e.ternTrue)
     else: i.visit(e.ternFalse)
 
-proc visitLiteral(i: Interpreter, e: Expr): LoxValue = 
+proc visitLiteral(i, e): LoxValue = 
   case e.litKind
   of LitStr: LoxValue(kind: String, strVal: e.litStr)
   of LitNum: LoxValue(kind: Number, numVal: e.litNum)
   of LitBool: LoxValue(kind: Bool, boolVal: e.litBool)
   of LitNil: LoxValue(kind: Nil)
 
-proc visitUnary(i: Interpreter, e: Expr): LoxValue = 
+proc visitUnary(i, e): LoxValue = 
   let right = i.visit(e.unRight)
   case e.unOp.kind
   of Minus:
@@ -122,7 +128,7 @@ proc visitUnary(i: Interpreter, e: Expr): LoxValue =
   else: assert false
 
 
-proc visit(i: Interpreter, e: Expr): LoxValue = 
+proc visit(i, e): LoxValue = 
   case e.kind
   of Binary: i.visitBinary(e)
   of Grouping: i.visitGrouping(e)
@@ -131,7 +137,7 @@ proc visit(i: Interpreter, e: Expr): LoxValue =
   of Ternary: i.visitTernary(e)
   else: LoxValue(kind: Nil)
 
-proc `$`(v: LoxValue): string = 
+proc `$`(v): string = 
   if v.kind == Nil: ""
   elif v.kind == Number:
     # A bit of a hack to output "integers" without decimal point
@@ -143,7 +149,7 @@ proc `$`(v: LoxValue): string =
   else: return
 
 
-proc interpret*(i: Interpreter, e: Expr) = 
+proc interpret*(i, e) = 
   try:
     let val = i.visit(e)
     echo val
