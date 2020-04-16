@@ -30,8 +30,8 @@ proc isTruthy(v): bool =
 proc `==`(l, r): bool = 
   # Nil is only equal to nil
   if l.kind == Nil and r.kind == Nil: true
-  # Nil is always false
-  elif l.kind == Nil: false
+  # Comparing to Nil is always false otherwise
+  elif l.kind == Nil or r.kind == Nil: false
   elif l.kind == Number and r.kind == Number: l.numVal == r.numVal
   elif l.kind == String and r.kind == String: l.strVal == r.strVal
   elif l.kind == Bool and r.kind == Bool: l.boolVal == r.boolVal
