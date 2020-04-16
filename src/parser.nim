@@ -1,9 +1,10 @@
-import errors, ast, token
+import errors, ast, tokens
 
 type 
-  Parser* = ref object
+  Parser = ref object
     tokens: seq[Token]
     current: int
+  
   ParseError* = ref object of ValueError
 
 proc peek(p: Parser): Token = 
@@ -166,7 +167,6 @@ proc expression(p: Parser): Expr =
   p.comma()
 
 proc parse*(p: Parser): Expr = 
-  echo p.tokens
   try:
     return p.expression()
   except ParseError:

@@ -1,4 +1,4 @@
-import token
+import tokens
 
 type
   ExprKind* = enum
@@ -87,56 +87,56 @@ type
 
 
 # Example from the end of chapter 5 for lisp-printing the AST
-proc visit(e: Expr): string
-
-import sequtils, strutils
-
-proc parenthesize(e: Expr, name: string, exprs: openarray[Expr]): string = 
-  result = $e.kind & "(" & name
-
-  result &= exprs.mapIt(visit(it)).join(" ")
-  result &= ")"
-
-proc visitBinary(e: Expr): string = 
-  parenthesize(e, e.binOp.lexeme, [e.binLeft, e.binRight])
-
-proc visitGrouping(e: Expr): string = 
-  parenthesize(e, "group", [e.grpExpr])
-
-proc visitTernary(e: Expr): string = 
-  parenthesize(e, "", [e.ternExpr, e.ternTrue, e.ternFalse])
-
-proc visitLiteral(e: Expr): string = 
-  case e.litKind
-  of LitStr: e.litStr
-  of LitNum: $e.litNum
-  of LitBool: $e.litBool
-  of LitNil: "nil"
-
-proc visitUnary(e: Expr): string = 
-  parenthesize(e, e.unOp.lexeme, [e.unRight])
-
-
-
-
-proc visit(e: Expr): string = 
-  case e.kind
-  of Binary:
-    e.visitBinary()
-  of Grouping:
-    e.visitGrouping()
-  of Literal:
-    e.visitLiteral()
-  of Unary:
-    e.visitUnary()
-  of Ternary:
-    e.visitTernary()
-  else: ""
-
-proc `$`*(e: Expr): string = 
-  e.visit()
-
 when isMainModule:
+  proc visit(e: Expr): string
+
+  import sequtils, strutils
+
+  proc parenthesize(e: Expr, name: string, exprs: openarray[Expr]): string = 
+    result = $e.kind & "(" & name
+
+    result &= exprs.mapIt(visit(it)).join(" ")
+    result &= ")"
+
+  proc visitBinary(e: Expr): string = 
+    parenthesize(e, e.binOp.lexeme, [e.binLeft, e.binRight])
+
+  proc visitGrouping(e: Expr): string = 
+    parenthesize(e, "group", [e.grpExpr])
+
+  proc visitTernary(e: Expr): string = 
+    parenthesize(e, "", [e.ternExpr, e.ternTrue, e.ternFalse])
+
+  proc visitLiteral(e: Expr): string = 
+    case e.litKind
+    of LitStr: e.litStr
+    of LitNum: $e.litNum
+    of LitBool: $e.litBool
+    of LitNil: "nil"
+
+  proc visitUnary(e: Expr): string = 
+    parenthesize(e, e.unOp.lexeme, [e.unRight])
+
+
+
+
+  proc visit(e: Expr): string = 
+    case e.kind
+    of Binary:
+      e.visitBinary()
+    of Grouping:
+      e.visitGrouping()
+    of Literal:
+      e.visitLiteral()
+    of Unary:
+      e.visitUnary()
+    of Ternary:
+      e.visitTernary()
+    else: ""
+
+  proc `$`*(e: Expr): string = 
+    e.visit()
+
 
   let expr = Expr(
     kind: Binary, binLeft: Expr(

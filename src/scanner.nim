@@ -1,6 +1,6 @@
 import tables, strutils
 
-import errors, token
+import errors, tokens
 
 
 const 

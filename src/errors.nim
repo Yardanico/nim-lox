@@ -1,11 +1,18 @@
 import strformat
 
-import token
-var hadError* = false
+import tokens
+
+
+type  
+  RuntimeError* = ref object of ValueError
+    tok*: Token
+
+var hadSyntaxError* = false
+var hadRuntimeError* = false
 
 proc report*(line: int, where, msg: string) = 
   echo fmt"[line {line}] Error {where}: {msg}"
-  hadError = true
+  hadSyntaxError = true
 
 proc error*(tok: Token, msg: string) = 
   if tok.kind == Eof:
@@ -15,3 +22,7 @@ proc error*(tok: Token, msg: string) =
 
 proc error*(line: int, msg: string) = 
   report(line, "", msg)
+
+proc runtimeError*(error: RuntimeError) = 
+  echo &"{error.msg}\n[line {error.tok.line}]"
+  hadRuntimeError = true
