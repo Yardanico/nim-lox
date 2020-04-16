@@ -1,24 +1,25 @@
 import os
 
-import errors, scanner, parser, interpreter
+import errors, scanner, parser, interpreter, env
 
-proc run(source: string) = 
+proc run(source: string, env = newEnvironment()) = 
   let scanner = newScanner(source)
   let tokens = scanner.scanTokens()
-
   let parser = newParser(tokens)
-  let expr = parser.parse()
+  let stmts = parser.parse()
 
-  let interpreter = newInterpreter()
+  
+  let interpreter = newInterpreter(env)
 
   if (hadSyntaxError): return
 
-  interpreter.interpret(expr)
+  interpreter.interpret(stmts)
 
 proc runPrompt = 
+  let env = newEnvironment()
   while true:
     stdout.write("> ")
-    run(stdin.readLine())
+    run(stdin.readLine(), env)
     hadSyntaxError = false
 
 proc runFile(path: string) = 

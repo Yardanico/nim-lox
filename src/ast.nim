@@ -51,35 +51,35 @@ type
       varName*: Token
   
   StmtKind* = enum
-    Block, Class, Expression, Function,
-    If, Print, Return, Var, While
+    BlockStmt, ClassStmt, ExprStmt, FuncStmt,
+    IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt
   
   Stmt* = ref object
     case kind*: StmtKind
-    of Block:
+    of BlockStmt:
       blockStmts*: seq[Stmt]
-    of Class:
+    of ClassStmt:
       clsName*: Token
       clsSuper*: Expr
       clsMethods*: seq[Stmt]
-    of Expression:
+    of ExprStmt:
       expr*: Expr
-    of Function:
+    of FuncStmt:
       funName*: Token
       funParams*: seq[Token]
       funBody*: seq[Stmt]
-    of If:
+    of IfStmt:
       ifCond*: Expr
       ifThen*, ifElse*: Stmt
-    of Print:
+    of PrintStmt:
       prExpr*: Expr
-    of Return:
+    of ReturnStmt:
       retKwd*: Token
       retVal*: Expr
-    of Var:
+    of VarStmt:
       varName*: Token
       varInit*: Expr
-    of While:
+    of WhileStmt:
       whileCond*: Expr
       whileBody*: Stmt
 

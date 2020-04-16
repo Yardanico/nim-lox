@@ -1,0 +1,41 @@
+var a = "global a";
+var b = "global b";
+var c = "global c";
+{
+  var a = "outer a";
+  var b = "outer b";
+  {
+    var a = "inner a";
+    print a;
+    print b;
+    print c;
+  }
+  print a;
+  print b;
+  print c;
+}
+print a;
+print b;
+print c;
+
+print true ? false ? true : "hello" : "world";
+
+var pi = 3.14;
+print pi * 2;
+print pi / 2;
+print pi * pi;
+
+/* multiline
+comment
+yes */
+
+// one-line comment
+
+pi = 2.21;
+print pi;
+
+var a = 1;
+{
+  var a = a + 2;
+  print a;
+}

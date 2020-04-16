@@ -77,28 +77,38 @@ proc primary(p): Expr =
 
   elif p.match(Number):
     Expr(kind: Literal, litKind: LitNum, litNum: p.previous().num)
+  
   elif p.match(String):
     Expr(kind: Literal, litKind: LitStr, litStr: p.previous().str)
+  
+  elif p.match(Identifier):
+    Expr(kind: Variable, varName: p.previous())
+  
   elif p.match(LeftParen):
     let expr = p.expression()
     p.consume(RightParen, "Expect ')' after expression.")
     Expr(kind: Grouping, grpExpr: expr)
+  
   elif p.match(BangEqual, EqualEqual):
     errors.error(p.previous(), "Missing left-hand operand.")
     discard p.equality()
     Expr()
+  
   elif p.match(Greater, GreaterEqual, Less, LessEqual):
     errors.error(p.previous(), "Missing left-hand operand.")
     discard p.comparison()
     Expr()
+  
   elif p.match(Plus, EqualEqual):
     errors.error(p.previous(), "Missing left-hand operand.")
     discard p.addition()
     Expr()
+  
   elif p.match(Slash, Star):
     errors.error(p.previous(), "Missing left-hand operand.")
     discard p.multiplication()
     Expr()
+  
   else:
     raise error(p.peek(), "Expect expression.")
 
@@ -157,23 +167,78 @@ proc ternary(p): Expr =
       ternFalse: falseBranch
     )
 
+proc assignment(p): Expr = 
+  result = p.ternary()
+  if p.match(Equal):
+    let equals = p.previous()
+    let val = p.assignment()
+
+    if result.kind == Variable:
+      let name = result.varName
+      return Expr(kind: Assign, asgnName: name, asgnVal: val)
+    
+    errors.error(equals, "Invalid assignment target.")
+  
 # ex.1 ch. 6
 proc comma(p): Expr = 
-  result = p.ternary()
+  result = p.assignment()
 
   while p.match(Comma):
     let op = p.previous()
-    let right = p.equality()
+    let right = p.assignment()
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
 proc expression(p): Expr = 
   p.comma()
 
-proc parse*(p): Expr = 
+proc printStmt(p): Stmt = 
+  let val = p.expression()
+  p.consume(Semicolon, "Expect ';' after value.")
+  return Stmt(kind: PrintStmt, prExpr: val)
+
+proc expressionStmt(p): Stmt = 
+  let val = p.expression()
+  p.consume(Semicolon, "Expect ';' after expression.")
+  return Stmt(kind: ExprStmt, expr: val)
+
+proc varDeclaration(p): Stmt = 
+  let name = p.consume(Identifier, "Expect variable name")
+
+  var initializer: Expr
+  if p.match(Equal):
+    initializer = p.expression()
+  
+  p.consume(Semicolon, "Expect ';' after variable declaration.")
+  Stmt(kind: VarStmt, varName: name, varINit: initializer)
+
+# Forward declaration
+proc blockStmts(p): seq[Stmt]
+
+proc statement(p): Stmt = 
+  if p.match(Print):
+    return p.printStmt()
+  elif p.match(LeftBrace):
+    return Stmt(kind: BlockStmt, blockStmts: p.blockStmts())
+  return p.expressionStmt()
+
+proc declaration(p): Stmt = 
   try:
-    return p.expression()
-  except ParseError:
-    return Expr()
+    if p.match(Var):
+      return p.varDeclaration()
+    return p.statement()
+  except ParseError as error:
+    p.synchronize()
+
+proc blockStmts(p): seq[Stmt] = 
+  while not p.check(RightBrace) and not p.isAtEnd():
+    result.add p.declaration()
+  
+  discard p.consume(RightBrace, "Expected '}' after block.")
+
+
+proc parse*(p): seq[Stmt] = 
+  while not p.isAtEnd():
+    result.add p.declaration()
 
 proc newParser*(tokens: seq[Token]): Parser = 
   Parser(tokens: tokens)
