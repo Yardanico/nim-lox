@@ -1,0 +1,171 @@
+// Your first Lox program!
+print "Hello, world!";
+
+print true;  // Not false.
+print false; // Not *not* false.
+
+print 1234;  // An integer.
+print 12.34; // A decimal number.
+
+print "I am a string";
+print "";    // The empty string.
+print "123"; // This is a string, not a number.
+
+print add + me;
+print subtract - me;
+print multiply * me;
+print divide / me;
+
+print 5 < 3;
+print 6 <= 9;
+print 1 > 5;
+print 5 >= 7;
+
+print 1 == 2;         // false.
+print "cat" != "dog"; // true.
+
+print 314 == "pi"; // false.
+
+print 123 == "123"; // false.
+
+print !true;  // false.
+print !false; // true.
+
+print true and false; // false.
+print true and true;  // true.
+
+print false or false; // false.
+print true or false;  // true.
+
+var average = (min + max) / 2;
+
+{
+  print "One statement.";
+  print "Two statements.";
+}
+
+var imAVariable = "here is my value";
+var iAmNil;
+
+var breakfast = "bagels";
+print breakfast; // "bagels".
+breakfast = "beignets";
+print breakfast; // "beignets".
+
+if (condition) {
+  print "yes";
+} else {
+  print "no";
+}
+
+var a = 1;
+
+while (a < 10) {
+  print a;
+  a = a + 1;
+}
+
+for (var a = 1; a < 10; a = a + 1) {
+  print a;
+}
+
+fun printSum(a, b) {
+  print a + b;
+}
+
+fun addPair(a, b) {
+  return a + b;
+}
+
+fun identity(a) {
+  return a;
+}
+
+print identity(addPair)(1, 2); // Prints "3".
+
+fun outerFunction() {
+  fun localFunction() {
+    print "I'm local!";
+  }
+
+  localFunction();
+}
+
+fun returnFunction() {
+  var outside = "outside";
+
+  fun inner() {
+    print outside;
+  }
+
+  return inner;
+}
+
+var fn = returnFunction();
+fn();
+
+class Breakfast {
+  cook() {
+    print "Eggs a-fryin'!";
+  }
+
+  serve(who) {
+    print "Enjoy your breakfast, " + who + ".";
+  }
+}
+
+// Store it in variables.
+var someVariable = Breakfast;
+
+// Pass it to functions.
+someFunction(Breakfast);
+
+var breakfast = Breakfast();
+print breakfast; // "Breakfast instance".
+
+breakfast.meat = "sausage";
+breakfast.bread = "sourdough";
+
+class Breakfast {
+  serve(who) {
+    print "Enjoy your " + this.meat + " and " +
+        this.bread + ", " + who + ".";
+  }
+
+  // ...
+}
+
+class Breakfast {
+  init(meat, bread) {
+    this.meat = meat;
+    this.bread = bread;
+  }
+
+  // ...
+}
+
+var baconAndToast = Breakfast("bacon", "toast");
+baconAndToast.serve("Dear Reader");
+// "Enjoy your bacon and toast, Dear Reader."
+
+class Brunch < Breakfast {
+  drink() {
+    print "How about a Bloody Mary?";
+  }
+}
+
+var benedict = Brunch("ham", "English muffin");
+benedict.serve("Noble Reader");
+
+class Brunch < Breakfast {
+  init(meat, bread, drink) {
+    super.init(meat, bread);
+    this.drink = drink;
+  }
+}
+
+/* this
+is
+a
+multinline
+comment */
