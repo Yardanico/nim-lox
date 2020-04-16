@@ -3,6 +3,7 @@ type
     # Single-character tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
     Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+    QuestionMark, Colon
 
     # One or two character tokens
     Bang, BangEqual,
@@ -23,8 +24,8 @@ type
     case kind*: TokenKind
     # Different literals
     #of Identifier: ident: string
-    of String: str: string
-    of Number: num: float
+    of String: str*: string
+    of Number: num*: float
     else: discard
     lexeme*: string
     line*: int

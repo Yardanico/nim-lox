@@ -1,13 +1,19 @@
 import os, strformat
 
-import errors, scanner
+import ast, errors, scanner, parser
 
 proc run(source: string) = 
   let scanner = newScanner(source)
   let tokens = scanner.scanTokens()
+  let parser = newParser(tokens)
+  let expr = parser.parse()
 
-  for token in tokens:
-    echo token
+  if (hadError): return
+
+
+  echo expr
+  #for token in tokens:
+  #  echo token
 
 proc runPrompt = 
   while true:

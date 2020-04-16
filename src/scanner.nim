@@ -137,6 +137,8 @@ proc scanToken(s: Scanner) =
   of '=': s.addToken(if s.match('='): EqualEqual else: Equal)
   of '<': s.addToken(if s.match('='): LessEqual else: Less)
   of '>': s.addToken(if s.match('='): GreaterEqual else: Greater)
+  of '?': s.addToken(QuestionMark)
+  of ':': s.addToken(Colon)
   # Either a comment or a slash
   of '/': 
     if s.match('/'):

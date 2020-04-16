@@ -3,11 +3,11 @@ import token
 type
   ExprKind* = enum
     Assign, Binary, Call, Get,
-    Grouping, Literal, Logical, Set,
+    Grouping, Literal, Ternary, Logical, Set,
     Super, This, Unary, Variable
   
   LiteralKind* = enum
-    Number, String, Boolean, Nil
+    LitNum, LitStr, LitBool, LitNil
 
   Expr* = ref object
     case kind*: ExprKind
@@ -28,13 +28,15 @@ type
       grpExpr*: Expr
     of Literal:
       case litKind*: LiteralKind
-      of Number: numLit*: float
-      of String: strLit*: string
-      of Boolean: boolLit*: bool
-      of Nil: discard
+      of LitNum: litNum*: float
+      of LitStr: litStr*: string
+      of LitBool: litBool*: bool
+      of LitNil: discard
     of Logical:
       logLeft*, logRight*: Expr
       logOp*: Token
+    of Ternary:
+      ternExpr*, ternTrue*, ternFalse*: Expr
     of Set:
       setObj*, setVal*: Expr
       setName*: Token
@@ -83,61 +85,68 @@ type
 
 
 
+
+# Example from the end of chapter 5 for lisp-printing the AST
+proc visit(e: Expr): string
+
+import sequtils, strutils
+
+proc parenthesize(e: Expr, name: string, exprs: openarray[Expr]): string = 
+  result = $e.kind & "(" & name
+
+  result &= exprs.mapIt(visit(it)).join(" ")
+  result &= ")"
+
+proc visitBinary(e: Expr): string = 
+  parenthesize(e, e.binOp.lexeme, [e.binLeft, e.binRight])
+
+proc visitGrouping(e: Expr): string = 
+  parenthesize(e, "group", [e.grpExpr])
+
+proc visitTernary(e: Expr): string = 
+  parenthesize(e, "", [e.ternExpr, e.ternTrue, e.ternFalse])
+
+proc visitLiteral(e: Expr): string = 
+  case e.litKind
+  of LitStr: e.litStr
+  of LitNum: $e.litNum
+  of LitBool: $e.litBool
+  of LitNil: "nil"
+
+proc visitUnary(e: Expr): string = 
+  parenthesize(e, e.unOp.lexeme, [e.unRight])
+
+
+
+
+proc visit(e: Expr): string = 
+  case e.kind
+  of Binary:
+    e.visitBinary()
+  of Grouping:
+    e.visitGrouping()
+  of Literal:
+    e.visitLiteral()
+  of Unary:
+    e.visitUnary()
+  of Ternary:
+    e.visitTernary()
+  else: ""
+
+proc `$`*(e: Expr): string = 
+  e.visit()
+
 when isMainModule:
-  # Example from the end of chapter 5 for lisp-printing the AST
-  proc visit(e: Expr): string
-
-  proc parenthesize(name: string, exprs: openarray[Expr]): string = 
-    result = "(" & name
-
-    for expr in exprs:
-      result &= " "
-      result &= expr.visit()
-    result &= ")"
-
-  proc visitBinary(e: Expr): string = 
-    parenthesize(e.binOp.lexeme, [e.binLeft, e.binRight])
-
-  proc visitGrouping(e: Expr): string = 
-    parenthesize("group", [e.grpExpr])
-
-  proc visitLiteral(e: Expr): string = 
-    case e.litKind
-    of String: e.strLit
-    of Number: $e.numLit
-    else: ""
-
-  proc visitUnary(e: Expr): string = 
-    parenthesize(e.unOp.lexeme, [e.unRight])
-
-
-
-
-  proc visit(e: Expr): string = 
-    case e.kind
-    of Binary:
-      e.visitBinary()
-    of Grouping:
-      e.visitGrouping()
-    of Literal:
-      e.visitLiteral()
-    of Unary:
-      e.visitUnary()
-    else: ""
-
-  proc `$`(e: Expr): string = 
-    e.visit()
-
 
   let expr = Expr(
     kind: Binary, binLeft: Expr(
       kind: Unary, unOp: Token(kind: Minus, lexeme: "-", line: 1), 
-      unRight: Expr(kind: Literal, litKind: Number, numLit: 123)
+      unRight: Expr(kind: Literal, litKind: LitNum, litNum: 123)
     ),
     binOp: Token(kind: Star, lexeme: "*", line: 1),
     binRight: Expr(
       kind: Grouping, grpExpr: Expr(
-        kind: Literal, litKind: Number, numLit: 45.67
+        kind: Literal, litKind: LitNum, litNum: 45.67
       )
     )
   )
