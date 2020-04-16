@@ -21,11 +21,16 @@ proc isTruthy(v: LoxValue): bool =
   elif v.kind == Bool: v.boolVal
   else: true
 
-proc isEqual(l, r: LoxValue): bool = 
+proc `==`(l, r: LoxValue): bool = 
   # Nil is only equal to nil
   if l.kind == Nil and r.kind == Nil: true
+  # Nil is always false
   elif l.kind == Nil: false
-  else: l == r
+  elif l.kind == Number and r.kind == Number: l.numVal == r.numVal
+  elif l.kind == String and r.kind == String: l.strVal == r.strVal
+  elif l.kind == Bool and r.kind == Bool: l.boolVal == r.boolVal
+  # Otherwise false
+  else: false
 
 proc checkNumberOperand(op: Token, v: LoxValue) = 
   if v.kind == Number: return
@@ -49,8 +54,9 @@ proc visitBinary(i: Interpreter, e: Expr): LoxValue =
     # Overloading for numbers *AND* strings
     if left.kind == Number and right.kind == Number:
       return LoxValue(kind: Number, numVal: left.numVal + right.numVal)
-    elif left.kind == String and right.kind == String:
-      return LoxValue(kind: String, strVal: left.strVal & right.strVal)
+    # Ch. 7 Ex. 2 -> "scone" + 4 == "scone4"
+    elif left.kind == String or right.kind == String:
+      return LoxValue(kind: String, strVal: $left & $right)
     else:
       raise RuntimeError(
         tok: e.binOp, msg: "Operands must be two numbers or two strings."
@@ -61,6 +67,9 @@ proc visitBinary(i: Interpreter, e: Expr): LoxValue =
     return LoxValue(kind: Number, numVal: left.numVal - right.numVal)
   of Slash: 
     checkNumberOperands(e.binOp, left, right)
+    # Ch. 7 Ex. 3
+    if right.numVal == 0:
+      raise RuntimeError(tok: e.binOp, msg: "Division by zero.")
     return LoxValue(kind: Number, numVal: left.numVal / right.numVal)
   of Star: 
     checkNumberOperands(e.binOp, left, right)
@@ -80,9 +89,9 @@ proc visitBinary(i: Interpreter, e: Expr): LoxValue =
     return LoxValue(kind: Bool, boolVal: left.boolVal <= right.boolVal)
   # Equality
   of BangEqual:
-    return LoxValue(kind: Bool, boolVal: not isEqual(left, right))
+    return LoxValue(kind: Bool, boolVal: not (left == right))
   of EqualEqual:
-    return LoxValue(kind: Bool, boolVal: isEqual(left, right))
+    return LoxValue(kind: Bool, boolVal: left == right)
   else: return
 
 proc visitGrouping(i: Interpreter, e: Expr): LoxValue = 
