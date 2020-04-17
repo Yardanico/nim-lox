@@ -3,9 +3,9 @@
 var a = 0;
 var b = 1;
 
-for (var i = 0; i <= 1000; i = i + 1) {
+for (var i = 0; i <= 50; i = i + 1) {
   print "Fib[" + i + "]=" + a;
-  if (i > 200) { 
+  if (i > 40) { 
     for (var k = 0; k < 5; k = k + 1) {
       print "k is " + k;
       break;
