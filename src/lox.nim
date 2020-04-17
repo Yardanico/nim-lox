@@ -19,6 +19,7 @@ proc runPrompt =
   let env = newEnvironment()
   while true:
     stdout.write("> ")
+    stdout.flushFile()
     run(stdin.readLine(), env)
     hadSyntaxError = false
 

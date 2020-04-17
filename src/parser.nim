@@ -51,7 +51,7 @@ proc synchronize(p) =
     of TokenKind.Class, TokenKind.Fun, TokenKind.Var, TokenKind.For, TokenKind.If, TokenKind.While, TokenKind.Print, TokenKind.Return: return
     else: discard
   
-  p.advance()
+    p.advance()
 
 
 proc consume(p; kind: TokenKind, msg: string): Token {.discardable.} = 
@@ -113,6 +113,7 @@ proc primary(p): Expr =
     raise error(p.peek(), "Expect expression.")
 
 proc unary(p): Expr = 
+  # -a, !a
   if p.match(Bang, Minus):
     let op = p.previous()
     let right = p.unary()
@@ -122,6 +123,7 @@ proc unary(p): Expr =
 
 # TODO: Unify these 4 (via a template I guess)
 proc multiplication(p): Expr = 
+  # a * b, a / b
   result = p.unary()
 
   while p.match(Slash, Star):
@@ -129,7 +131,8 @@ proc multiplication(p): Expr =
     let right = p.unary()
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
-proc addition(p): Expr = 
+proc addition(p): Expr =
+  # a + b, a - b
   result = p.multiplication()
 
   while p.match(Minus, Plus):
@@ -138,6 +141,7 @@ proc addition(p): Expr =
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
 proc comparison(p): Expr = 
+  # a > b, b > c 
   result = p.addition()
 
   while p.match(Greater, GreaterEqual, Less, LessEqual):
@@ -146,6 +150,7 @@ proc comparison(p): Expr =
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
 proc equality(p): Expr = 
+  # true == false
   result = p.comparison()
 
   while p.match(BangEqual, EqualEqual):
@@ -153,9 +158,28 @@ proc equality(p): Expr =
     let right = p.comparison()
     result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right) 
 
+proc andExpr(p): Expr = 
+  # true and false;
+  result = p.equality()
+
+  while p.match(And):
+    let op = p.previous()
+    let right = p.equality()
+    result = Expr(kind: Logical, logLeft: result, logOp: op, logRight: right)
+
+proc orExpr(p): Expr = 
+  # true or false;
+  result = p.andExpr()
+
+  while p.match(Or):
+    let op = p.previous()
+    let right = p.andExpr()
+    result = Expr(kind: Logical, logLeft: result, logOp: op, logRight: right)
+
 # ex.2 ch. 6
 proc ternary(p): Expr = 
-  result = p.equality()
+  # true? "yes": "no"
+  result = p.orExpr()
   while p.match(QuestionMark):
     let trueBranch = p.ternary()
     p.consume(Colon, "Expected a colon for ternary operator")
@@ -168,6 +192,7 @@ proc ternary(p): Expr =
     )
 
 proc assignment(p): Expr = 
+  # a = 5
   result = p.ternary()
   if p.match(Equal):
     let equals = p.previous()
@@ -181,6 +206,7 @@ proc assignment(p): Expr =
   
 # ex.1 ch. 6
 proc comma(p): Expr = 
+  # a = 1, b = 2, c = 3
   result = p.assignment()
 
   while p.match(Comma):
@@ -201,6 +227,11 @@ proc expressionStmt(p): Stmt =
   p.consume(Semicolon, "Expect ';' after expression.")
   return Stmt(kind: ExprStmt, expr: val)
 
+proc breakStmt(p): Stmt = 
+  # break;
+  p.consume(Semicolon, "Expect ';' after break statement.")
+  return Stmt(kind: BreakStmt)
+
 proc varDeclaration(p): Stmt = 
   let name = p.consume(Identifier, "Expect variable name")
 
@@ -211,12 +242,77 @@ proc varDeclaration(p): Stmt =
   p.consume(Semicolon, "Expect ';' after variable declaration.")
   Stmt(kind: VarStmt, varName: name, varINit: initializer)
 
-# Forward declaration
+# Forward declarations
 proc blockStmts(p): seq[Stmt]
+proc statement(p): Stmt
+
+proc ifStmt(p): Stmt = 
+  p.consume(LeftParen, "Expect '(' after 'if'.")
+  let cond = p.expression()
+  p.consume(RightParen, "Expect ')' after if condition.")
+
+  let thenBranch = p.statement()
+  var elseBranch: Stmt
+  if p.match(Else):
+    elseBranch = p.statement()
+
+  Stmt(kind: IfStmt, ifCond: cond, ifThen: thenBranch, ifElse: elseBranch)
+
+proc whileStmt(p): Stmt = 
+  p.consume(LeftParen, "Expect '(' after 'while'.")
+  let cond = p.expression()
+  p.consume(RightParen, "Expect '(' after condition.")
+  let body = p.statement()
+
+  Stmt(kind: WhileStmt, whileCond: cond, whileBody: body)
+
+proc forStmt(p): Stmt = 
+  # For statements are sugar over while loops
+  p.consume(LeftParen, "Expect '(' after 'for'.")
+
+  # Optional initialization
+  let init = if p.match(Semicolon):
+    nil
+  elif p.match(Var):
+    p.varDeclaration()
+  else:
+    p.expressionStmt()
+  
+  # Optional condition
+  var cond = if not p.check(Semicolon): p.expression() else: nil
+
+  p.consume(Semicolon, "Expect ';' after loop condition.")
+
+  # Optional increment
+  let incr = if not p.check(Semicolon): p.expression() else: nil
+  p.consume(RightParen, "Expect ')' after for clauses.")
+
+  # For loop body
+  result = p.statement()
+
+  if not incr.isNil():
+    # Add increment expression at the end of the loop body
+    result = Stmt(
+      kind: BlockStmt, 
+      blockStmts: @[result, Stmt(kind: ExprStmt, expr: incr)]
+    )
+  
+  if cond.isNil():
+    # No condition -> always true
+    cond = Expr(kind: Literal, litKind: LitBool, litBool: true)
+  # Create a while statement
+  result = Stmt(kind: WhileStmt, whileCond: cond, whileBody: result)
+
+  if not init.isNil():
+    # Add var initializer in the block before the loop body
+    result = Stmt(kind: BlockStmt, blockStmts: @[init, result])
 
 proc statement(p): Stmt = 
-  if p.match(Print):
-    return p.printStmt()
+  if p.match(For): return p.forStmt()
+  if p.match(If): return p.ifStmt()
+  if p.match(Print): return p.printStmt()
+  if p.match(While): return p.whileStmt()
+  if p.match(Break): return p.breakStmt()
   elif p.match(LeftBrace):
     return Stmt(kind: BlockStmt, blockStmts: p.blockStmts())
   return p.expressionStmt()

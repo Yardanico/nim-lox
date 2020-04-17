@@ -9,7 +9,7 @@ type
   LiteralKind* = enum
     LitNum, LitStr, LitBool, LitNil
 
-  Expr* = ref object
+  Expr* {.acyclic.} = ref object
     case kind*: ExprKind
     of Assign:
       asgnName*: Token
@@ -52,9 +52,10 @@ type
   
   StmtKind* = enum
     BlockStmt, ClassStmt, ExprStmt, FuncStmt,
-    IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt
+    IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt,
+    BreakStmt
   
-  Stmt* = ref object
+  Stmt* {.acyclic.} = ref object
     case kind*: StmtKind
     of BlockStmt:
       blockStmts*: seq[Stmt]
@@ -82,6 +83,7 @@ type
     of WhileStmt:
       whileCond*: Expr
       whileBody*: Stmt
+    of BreakStmt: discard
 
 
 

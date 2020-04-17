@@ -21,7 +21,8 @@ const
     "this": This,
     "true": True,
     "var": Var,
-    "while": While
+    "while": While,
+    "break": Break
   }.toTable()
 
 type

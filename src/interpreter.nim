@@ -73,16 +73,16 @@ proc visitBinary(i, e): LoxValue =
   # Comparison operators
   of Greater:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.boolVal > right.boolVal)
+    return LoxValue(kind: BoolVal, boolVal: left.numVal > right.numVal)
   of GreaterEqual:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.boolVal >= right.boolVal)
+    return LoxValue(kind: BoolVal, boolVal: left.numVal >= right.numVal)
   of Less:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.boolVal > right.boolVal)
+    return LoxValue(kind: BoolVal, boolVal: left.numVal < right.numVal)
   of LessEqual:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.boolVal <= right.boolVal)
+    return LoxValue(kind: BoolVal, boolVal: left.numVal <= right.numVal)
   # Equality
   of BangEqual:
     return LoxValue(kind: BoolVal, boolVal: not (left == right))
@@ -117,13 +117,24 @@ proc visitUnary(i, e): LoxValue =
     return LoxValue(kind: BoolVal, boolVal: not isTruthy(right))
   else: assert false
 
-proc visitAssignExpr(i, e): Loxvalue = 
+proc visitAssignExpr(i, e): LoxValue = 
   result = i.visit(e.asgnVal)
 
   i.env.assign(e.asgnName, result)
 
 proc visitVariableExpr(i, e): LoxValue = 
   i.env.get(e.varName)
+
+proc visitLogicalExpr(i, e): LoxValue = 
+  result = i.visit(e.logLeft)
+
+  # Short-circuit "or" and "and"
+  if e.logOp.kind == Or:
+    if isTruthy(result): return
+  elif e.logOp.kind == And:
+    if not isTruthy(result): return
+  
+  result = i.visit(e.logRight)
 
 proc visit(i, e): LoxValue = 
   case e.kind
@@ -134,6 +145,7 @@ proc visit(i, e): LoxValue =
   of Ternary: i.visitTernary(e)
   of Variable: i.visitVariableExpr(e)
   of Assign: i.visitAssignExpr(e)
+  of Logical: i.visitLogicalExpr(e)
   else: LoxValue(kind: NilVal)
 
 proc visitVarStmt(i, s) = 
@@ -166,12 +178,24 @@ proc executeBlock(i; stmts: seq[Stmt], env: Environment) =
 proc visitBlockStmt(i, s) = 
   i.executeBlock(s.blockStmts, newEnvironment(i.env))
 
+proc visitIfStmt(i, s) = 
+  if isTruthy(i.visit(s.ifCond)):
+    i.execute(s.ifThen)
+  elif s.ifThen != nil:
+    i.execute(s.ifElse)
+
+proc visitWhileStmt(i, s) =
+  while isTruthy(i.visit(s.whileCond)):
+    i.execute(s.whileBody)
+
 proc visit(i, s) = 
   case s.kind
   of PrintStmt: i.visitPrintStmt(s)
   of ExprStmt: i.visitExpressionStmt(s)
   of VarStmt: i.visitVarStmt(s)
   of BlockStmt: i.visitBlockStmt(s)
+  of IfStmt: i.visitIfStmt(s)
+  of WhileStmt: i.visitWhileStmt(s)
   else: discard
 
 proc interpret*(i; stmts: seq[Stmt]) = 

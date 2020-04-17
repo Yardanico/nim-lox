@@ -3,7 +3,7 @@ import tables
 import tokens, errors, types
 
 type
-  Environment* = ref object
+  Environment* {.acyclic.} = ref object
     values: TableRef[string, LoxValue]
     enclosing: Environment
 

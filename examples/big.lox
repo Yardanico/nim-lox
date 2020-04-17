@@ -11,4 +11,4 @@ f
 
 var a = "hello";
 
-"hello";
+print "hello";
