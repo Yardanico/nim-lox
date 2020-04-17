@@ -1,0 +1,6 @@
+After completing first part of the book:
+- Decide if we want to require variable initialization
+- Make REPL nicer
+- Better error handling
+- Try to make `;` optional (book has some info on that)
+- Experiment with adding a bit of standard library and a module system
