@@ -29,30 +29,29 @@ proc `==`(l, r): bool =
   else: false
 
 proc checkNumberOperand(op, v) = 
-  if v.kind == NumVal: return
-  raise RuntimeError(tok: op, msg: "Operand must be a number.")
+  if v.kind != NumVal: 
+    raise RuntimeError(tok: op, msg: "Operand must be a number.")
 
 proc checkNumberOperands(op, l, r) = 
-  if l.kind == NumVal and r.kind == NumVal: return
-  raise RuntimeError(tok: op, msg: "Operand must be a number.")
+  if not (l.kind == NumVal and r.kind == NumVal): 
+    raise RuntimeError(tok: op, msg: "Operand must be a number.")
 
 proc visit(i, e): LoxValue
 
 proc visitBinary(i, e): LoxValue = 
   let left = i.visit(e.binLeft)
   let right = i.visit(e.binRight)
-  result = LoxValue(kind: NumVal)
   
-  case e.binOp.kind
+  result = case e.binOp.kind
   of Plus:
     # Overloading for numbers *AND* strings
     if left.kind == NumVal and right.kind == NumVal:
-      return LoxValue(kind: NumVal, numVal: left.numVal + right.numVal)
+      LoxValue(kind: NumVal, numVal: left.numVal + right.numVal)
     # Ch. 7 Ex. 2 -> "scone" + 4 == "scone4"
     # TODO: Decide if we really want that, and if yes, do a better
     # error message
     elif left.kind == StrVal or right.kind == StrVal:
-      return LoxValue(kind: StrVal, strVal: $left & $right)
+      LoxValue(kind: StrVal, strVal: $left & $right)
     else:
       raise RuntimeError(
         tok: e.binOp, msg: "Operands must be two numbers or two strings."
@@ -60,35 +59,35 @@ proc visitBinary(i, e): LoxValue =
   # Arithmetics
   of Minus: 
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: NumVal, numVal: left.numVal - right.numVal)
+    LoxValue(kind: NumVal, numVal: left.numVal - right.numVal)
   of Slash: 
     checkNumberOperands(e.binOp, left, right)
     # Ch. 7 Ex. 3
     if right.numVal == 0:
       raise RuntimeError(tok: e.binOp, msg: "Division by zero.")
-    return LoxValue(kind: NumVal, numVal: left.numVal / right.numVal)
+    LoxValue(kind: NumVal, numVal: left.numVal / right.numVal)
   of Star: 
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: NumVal, numVal: left.numVal * right.numVal)
+    LoxValue(kind: NumVal, numVal: left.numVal * right.numVal)
   # Comparison operators
   of Greater:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.numVal > right.numVal)
+    LoxValue(kind: BoolVal, boolVal: left.numVal > right.numVal)
   of GreaterEqual:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.numVal >= right.numVal)
+    LoxValue(kind: BoolVal, boolVal: left.numVal >= right.numVal)
   of Less:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.numVal < right.numVal)
+    LoxValue(kind: BoolVal, boolVal: left.numVal < right.numVal)
   of LessEqual:
     checkNumberOperands(e.binOp, left, right)
-    return LoxValue(kind: BoolVal, boolVal: left.numVal <= right.numVal)
+    LoxValue(kind: BoolVal, boolVal: left.numVal <= right.numVal)
   # Equality
   of BangEqual:
-    return LoxValue(kind: BoolVal, boolVal: not (left == right))
+    LoxValue(kind: BoolVal, boolVal: not (left == right))
   of EqualEqual:
-    return LoxValue(kind: BoolVal, boolVal: left == right)
-  else: return
+    LoxValue(kind: BoolVal, boolVal: left == right)
+  else: LoxValue(kind: NumVal)
 
 proc visitGrouping(i, e): LoxValue = 
   i.visit(e.grpExpr)
@@ -109,13 +108,13 @@ proc visitLiteral(i, e): LoxValue =
 
 proc visitUnary(i, e): LoxValue = 
   let right = i.visit(e.unRight)
-  case e.unOp.kind
+  result = case e.unOp.kind
   of Minus:
     checkNumberOperand(e.unOp, right)
-    return LoxValue(kind: NumVal, numVal: -right.numVal)
+    LoxValue(kind: NumVal, numVal: -right.numVal)
   of Bang:
-    return LoxValue(kind: BoolVal, boolVal: not isTruthy(right))
-  else: assert false
+    LoxValue(kind: BoolVal, boolVal: not isTruthy(right))
+  else: raise RuntimeError(msg: "Can't happen")
 
 proc visitAssignExpr(i, e): LoxValue = 
   result = i.visit(e.asgnVal)
@@ -129,12 +128,12 @@ proc visitLogicalExpr(i, e): LoxValue =
   result = i.visit(e.logLeft)
 
   # Short-circuit "or" and "and"
-  if e.logOp.kind == Or:
-    if isTruthy(result): return
-  elif e.logOp.kind == And:
-    if not isTruthy(result): return
-  
-  result = i.visit(e.logRight)
+  let shortOr = e.logOp.kind == Or and isTruthy(result)
+  let shortAnd = e.logOp.kind == And and not isTruthy(result)
+  if shortOr or shortAnd:
+    discard
+  else:
+    result = i.visit(e.logRight)
 
 proc visit(i, e): LoxValue = 
   case e.kind
@@ -159,6 +158,7 @@ proc visitExpressionStmt(i, s) =
 
 proc visitPrintStmt(i, s) = 
   let value = i.visit(s.prExpr)
+  # Don't remove this echo - it's for printing stuff!!!
   echo value
 
 proc visit(i, s)
@@ -181,12 +181,20 @@ proc visitBlockStmt(i, s) =
 proc visitIfStmt(i, s) = 
   if isTruthy(i.visit(s.ifCond)):
     i.execute(s.ifThen)
-  elif s.ifThen != nil:
+  # If we have an else branch
+  elif s.ifElse != nil:
     i.execute(s.ifElse)
 
 proc visitWhileStmt(i, s) =
-  while isTruthy(i.visit(s.whileCond)):
-    i.execute(s.whileBody)
+  try:
+    while isTruthy(i.visit(s.whileCond)):
+      i.execute(s.whileBody)
+  # Break out of loop
+  except BreakError:
+    discard
+
+proc visitBreakStmt(i, s) = 
+  raise BreakError()
 
 proc visit(i, s) = 
   case s.kind
@@ -196,6 +204,7 @@ proc visit(i, s) =
   of BlockStmt: i.visitBlockStmt(s)
   of IfStmt: i.visitIfStmt(s)
   of WhileStmt: i.visitWhileStmt(s)
+  of BreakStmt: i.visitBreakStmt(s)
   else: discard
 
 proc interpret*(i; stmts: seq[Stmt]) = 

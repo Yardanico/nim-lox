@@ -1,10 +1,18 @@
-// Simple Fibonacci example
+// Simple Fibonacci example with break statements for testing
 
 var a = 0;
 var b = 1;
 
-for (var i = 0; i <= 30; i = i + 1) {
-  print a;
+for (var i = 0; i <= 1000; i = i + 1) {
+  print "Fib[" + i + "]=" + a;
+  if (i > 200) { 
+    for (var k = 0; k < 5; k = k + 1) {
+      print "k is " + k;
+      break;
+    }
+    print "breaking";
+    break;
+  }
   var temp = a;
   a = b + a;
   b = temp;

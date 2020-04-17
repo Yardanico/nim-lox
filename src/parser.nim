@@ -4,6 +4,7 @@ type
   Parser = ref object
     tokens: seq[Token]
     current: int
+    loopDepth: int
 
   ParseError* = ref object of ValueError
 
@@ -230,6 +231,8 @@ proc expressionStmt(p): Stmt =
 proc breakStmt(p): Stmt = 
   # break;
   p.consume(Semicolon, "Expect ';' after break statement.")
+  if p.loopDepth == 0:
+    errors.error(p.previous(), "'break' can only used in loop context.")
   return Stmt(kind: BreakStmt)
 
 proc varDeclaration(p): Stmt = 
@@ -308,10 +311,15 @@ proc forStmt(p): Stmt =
     result = Stmt(kind: BlockStmt, blockStmts: @[init, result])
 
 proc statement(p): Stmt = 
-  if p.match(For): return p.forStmt()
+  try:
+    inc p.loopDepth
+    if p.match(For): return p.forStmt()
+    if p.match(While): return p.whileStmt()
+  finally:
+    dec p.loopDepth
   if p.match(If): return p.ifStmt()
   if p.match(Print): return p.printStmt()
-  if p.match(While): return p.whileStmt()
+  
   if p.match(Break): return p.breakStmt()
   elif p.match(LeftBrace):
     return Stmt(kind: BlockStmt, blockStmts: p.blockStmts())

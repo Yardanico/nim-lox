@@ -1,3 +1,5 @@
+import strutils
+
 type
   LoxValueKind* = enum
     StrVal, NumVal, BoolVal, NilVal
@@ -11,12 +13,13 @@ type
 
 
 proc `$`*(v: LoxValue): string = 
-  if v.kind == NilVal: ""
-  elif v.kind == NumVal:
-    # A bit of a hack to output "integers" without decimal point
-    if float(int(v.numVal)) == v.numVal: $int(v.numVal)
-    else: $v.numVal
-  elif v.kind == BoolVal: $v.boolVal
-  elif v.kind == StrVal: v.strVal
-  # Can't happen
-  else: return
+  ## Convert a LoxValue object to a string
+  ## Used by the interpreter to stringify variables
+  case v.kind
+  of NilVal: ""
+  of NumVal:
+    var res = v.numVal.formatBiggestFloat(ffDecimal, -1)
+    res.trimZeros()
+    res
+  of BoolVal: $v.boolVal
+  of StrVal: v.strVal

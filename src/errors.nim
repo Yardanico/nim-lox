@@ -6,6 +6,7 @@ import tokens
 type  
   RuntimeError* = ref object of ValueError
     tok*: Token
+  BreakError* = ref object of RuntimeError
 
 var hadSyntaxError* = false
 var hadRuntimeError* = false
