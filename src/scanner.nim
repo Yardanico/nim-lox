@@ -123,6 +123,9 @@ proc ident(s) =
   
   s.addToken(if tokType == Eof: Identifier else: tokType)
 
+proc skipLine(s) = 
+  while s.peek() != '\n' and not s.isAtEnd():
+    s.advance()
 
 proc scanToken(s) = 
   let c = s.advance()
@@ -144,10 +147,9 @@ proc scanToken(s) =
   of '?': s.addToken(QuestionMark)
   of ':': s.addToken(Colon)
   # Either a comment or a slash
-  of '/': 
-    if s.match('/'):
-      while s.peek() != '\n' and not s.isAtEnd():
-        s.advance()
+  of '#': s.skipLine()
+  of '/':
+    if s.match('/'): s.skipLine()
     # Multinline comment
     elif s.match('*'):
       while s.peek() != '*' and s.peekNext() != '/' and not s.isAtEnd():

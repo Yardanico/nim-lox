@@ -1,8 +1,6 @@
-import ast, errors, tokens, env, types
+import strformat
 
-type
-  Interpreter* = ref object
-    env: Environment
+import ast, errors, tokens, env, types
 
 using
   i: Interpreter
@@ -135,6 +133,62 @@ proc visitLogicalExpr(i, e): LoxValue =
   else:
     result = i.visit(e.logRight)
 
+proc executeBlock(i; stmts: seq[Stmt], env: Environment)
+
+proc callFunc(i, v; args: seq[LoxValue]): LoxValue = 
+  # Calls a Lox function *v* with arguments *args*
+  # Create a new environment with the captured environment
+  # being the parent one
+  result = LoxValue(kind: NilVal)
+  var env = newEnvironment(v.calVal.env)
+  # Call a builtin
+  let kind = v.calVal.kind
+  if kind == Builtin:
+    result = v.calVal.bCall(i, args)
+  elif kind in {Code, Anonymous}:
+    let body = if kind == Anonymous: 
+      v.calVal.aDecl 
+    else: 
+      v.calVal.cDecl.funBody
+    let params = body.funParams
+    for i, param in params:
+      env.define(param.lexeme, args[i])
+    try:
+      i.executeBlock(body.funStmts, env)
+    except ReturnError as ret:
+      result = ret.value
+
+proc visitCallExpr(i, e): LoxValue = 
+  result = i.visit(e.cCallee)
+
+  if result.kind != CallableVal:
+    raise RuntimeError(
+      tok: e.cParen,
+      msg: "Can only call functions and classes."
+    )
+  var args = newSeq[LoxValue]()
+  # Get value of all arguments
+  for arg in e.cArgs:
+    args.add(i.visit(arg))
+  
+  if args.len != result.calVal.arity:
+    raise RuntimeError(
+      tok: e.cParen, 
+      msg: fmt"Expected {result.calVal.arity} arguments but got {args.len}."
+    )
+  result = i.callFunc(result, args)
+
+proc visitFuncExpr(i, e): LoxValue = 
+  LoxValue(
+    kind: CallableVal,
+    calVal: LoxCallable(
+      kind: Anonymous,
+      arity: e.funParams.len,
+      env: i.env,
+      aDecl: e
+    )
+  )
+
 proc visit(i, e): LoxValue = 
   case e.kind
   of Binary: i.visitBinary(e)
@@ -145,6 +199,8 @@ proc visit(i, e): LoxValue =
   of Variable: i.visitVariableExpr(e)
   of Assign: i.visitAssignExpr(e)
   of Logical: i.visitLogicalExpr(e)
+  of Func: i.visitFuncExpr(e)
+  of Call: i.visitCallExpr(e)
   else: LoxValue(kind: NilVal)
 
 proc visitVarStmt(i, s) = 
@@ -161,18 +217,32 @@ proc visitPrintStmt(i, s) =
   # Don't remove this echo - it's for printing stuff!!!
   echo value
 
+proc visitFunctionStmt(i, s) = 
+  i.env.define(s.funName.lexeme, LoxValue(
+    kind: CallableVal,
+    calVal: LoxCallable(
+      kind: Code, 
+      arity: s.funBody.funParams.len,
+      cDecl: s,
+      env: i.env
+    )
+  ))
+
 proc visit(i, s)
 
 proc execute(i, s) =
   i.visit(s)
 
 proc executeBlock(i; stmts: seq[Stmt], env: Environment) = 
+  # Save previous environment
   let prev = i.env
   try:
+    # Set current environment to a new one
     i.env = env
     for stmt in stmts:
       i.execute(stmt)
   finally:
+    # Restore old environment
     i.env = prev
 
 proc visitBlockStmt(i, s) = 
@@ -196,6 +266,10 @@ proc visitWhileStmt(i, s) =
 proc visitBreakStmt(i, s) = 
   raise BreakError()
 
+proc visitReturnStmt(i, s) = 
+  let val = if s.retVal.isNil(): nil else: i.visit(s.retVal)
+  raise ReturnError(value: val)
+
 proc visit(i, s) = 
   case s.kind
   of PrintStmt: i.visitPrintStmt(s)
@@ -205,6 +279,8 @@ proc visit(i, s) =
   of IfStmt: i.visitIfStmt(s)
   of WhileStmt: i.visitWhileStmt(s)
   of BreakStmt: i.visitBreakStmt(s)
+  of FuncStmt: i.visitFunctionStmt(s)
+  of ReturnStmt: i.visitReturnStmt(s)
   else: discard
 
 proc interpret*(i; stmts: seq[Stmt]) = 
@@ -214,7 +290,44 @@ proc interpret*(i; stmts: seq[Stmt]) =
   except RuntimeError as err:
     errors.runtimeError(err)
 
+proc defBuiltin(e: Environment, name: string, arity: int, p: LoxBuiltin) = 
+  #let callable = 
+  #let val = LoxValue(kind: CallableVal, calVal: callable)
+  e.define(name, LoxValue(kind: CallableVal, calVal: LoxCallable(
+        kind: Builtin,
+        bName: name,
+        arity: arity,
+        bCall: p,
+        env: e
+      )))
+  #[
+  e.define(name, LoxValue(kind: CallableVal,
+      calVal: LoxCallable(
+        kind: Builtin,
+        bName: name,
+        arity: arity,
+        bCall: p,
+        env: e
+      )
+  ))]#
 
+import times
 
 proc newInterpreter*(env: Environment): Interpreter = 
-  Interpreter(env: env)
+  result = Interpreter(globals: env)
+
+  # Define some built-ins
+  result.globals.defBuiltin(
+    "clock", 0, 
+    proc (i; args: seq[LoxValue]): LoxValue = 
+      LoxValue(kind: NumVal, numVal: getTime().toUnixFloat())
+  )
+
+  result.globals.defBuiltin(
+    "echo", 1, 
+    proc (i; args: seq[LoxValue]): LoxValue = 
+      echo args[0]
+      LoxValue(kind: NilVal)
+  )
+
+  result.env = result.globals

@@ -2,7 +2,7 @@ import tokens
 
 type
   ExprKind* = enum
-    Assign, Binary, Call, Get,
+    Assign, Binary, Call, Func, Get,
     Grouping, Literal, Ternary, Logical, Set,
     Super, This, Unary, Variable
   
@@ -11,30 +11,40 @@ type
 
   Expr* {.acyclic.} = ref object
     case kind*: ExprKind
+    # Assigning name to a value
     of Assign:
       asgnName*: Token
       asgnVal*: Expr
+    # Binary operators
     of Binary:
       binLeft*, binRight*: Expr
       binOp*: Token
+    # Call
     of Call:
       cCallee*: Expr
       cParen*: Token
       cArgs*: seq[Expr]
+    of Func:
+      funParams*: seq[Token]
+      funStmts*: seq[Stmt]
     of Get:
       getObj*: Expr
       getName*: Token
+    # (expr)
     of Grouping:
       grpExpr*: Expr
+    # Some literal
     of Literal:
       case litKind*: LiteralKind
       of LitNum: litNum*: float
       of LitStr: litStr*: string
       of LitBool: litBool*: bool
       of LitNil: discard
+    # Logical op
     of Logical:
       logLeft*, logRight*: Expr
       logOp*: Token
+    # Ternary operator true ? "a": "b"
     of Ternary:
       ternExpr*, ternTrue*, ternFalse*: Expr
     of Set:
@@ -44,6 +54,7 @@ type
       supKeyword*, supMethod*: Token
     of This:
       thisKeyword*: Token
+    # Unary operators like !a -a
     of Unary:
       unOp*: Token
       unRight*: Expr
@@ -67,8 +78,7 @@ type
       expr*: Expr
     of FuncStmt:
       funName*: Token
-      funParams*: seq[Token]
-      funBody*: seq[Stmt]
+      funBody*: Expr
     of IfStmt:
       ifCond*: Expr
       ifThen*, ifElse*: Stmt

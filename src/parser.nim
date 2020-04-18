@@ -65,6 +65,7 @@ proc equality(p): Expr
 proc comparison(p): Expr
 proc addition(p): Expr
 proc multiplication(p): Expr
+proc functionBody(p; kind: string): Expr
 
 proc primary(p): Expr = 
   # TODO: Use case statement here
@@ -82,6 +83,10 @@ proc primary(p): Expr =
   elif p.match(String):
     Expr(kind: Literal, litKind: LitStr, litStr: p.previous().str)
   
+  # Functions as expressions (anonymous functions)
+  elif p.match(Fun):
+    p.functionBody("function")
+
   elif p.match(Identifier):
     Expr(kind: Variable, varName: p.previous())
   
@@ -113,14 +118,38 @@ proc primary(p): Expr =
   else:
     raise error(p.peek(), "Expect expression.")
 
+proc finishCall(p; e: Expr): Expr = 
+  result = Expr(kind: Call, cCallee: e)
+  # IF we have arguments
+  if not p.check(RightParen):
+    result.cArgs.add(p.expression())
+    # There might be no commas if there only was 1 argument
+    while p.match(Comma):
+      # Max argument count
+      if result.cArgs.len >= 255:
+        errors.error(p.peek(), "Cannot have more than 255 arguments.")
+      result.cArgs.add(p.expression())
+  
+  let paren = p.consume(RightParen, "Expect ')' after arguments.")
+
+proc call(p): Expr = 
+  result = p.primary()
+
+  # fn(1)(2)(3)
+  while true:
+    if p.match(LeftParen):
+      result = p.finishCall(result)
+    else:
+      break
+
 proc unary(p): Expr = 
   # -a, !a
-  if p.match(Bang, Minus):
+  result = if p.match(Bang, Minus):
     let op = p.previous()
     let right = p.unary()
-    return Expr(kind: Unary, unRight: right, unOp: op)
-  
-  return p.primary()
+    Expr(kind: Unary, unRight: right, unOp: op)
+  else:
+    p.call()
 
 # TODO: Unify these 4 (via a template I guess)
 proc multiplication(p): Expr = 
@@ -210,10 +239,11 @@ proc comma(p): Expr =
   # a = 1, b = 2, c = 3
   result = p.assignment()
 
-  while p.match(Comma):
-    let op = p.previous()
-    let right = p.assignment()
-    result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
+  # TODO: Fix comma op?
+  #while p.match(Comma):
+  #  let op = p.previous()
+  #  let right = p.assignment()
+  #  result = Expr(kind: Binary, binLeft: result, binOp: op, binRight: right)
 
 proc expression(p): Expr = 
   p.comma()
@@ -246,8 +276,30 @@ proc varDeclaration(p): Stmt =
   Stmt(kind: VarStmt, varName: name, varINit: initializer)
 
 # Forward declarations
-proc blockStmts(p): seq[Stmt]
 proc statement(p): Stmt
+proc blockStmts(p): seq[Stmt]
+
+proc functionBody(p; kind: string): Expr = 
+  p.consume(LeftParen, "Expect '(' after " & kind & " name.")
+  var params = newSeq[Token]()
+  # If the function has parameters
+  if not p.check(RightParen):
+    # TODO: Make a "do while" template?
+    params.add(p.consume(Identifier, "Expect parameter name."))
+    while p.match(Comma):
+      if params.len >= 255:
+        errors.error(p.peek(), "Cannot have more than 255 parameters.")
+      params.add(p.consume(Identifier, "Expect parameter name."))
+  p.consume(RightParen, "Expect ')' after parameters.")
+
+  p.consume(LeftBrace, "Expect '{' before " & kind & " body.")
+  # Parse fun body
+  let body = p.blockStmts()
+  result = Expr(kind: Func, funParams: params, funStmts: body)
+
+proc function(p; kind: string): Stmt = 
+  let name = p.consume(Identifier, "Expect " & kind & " name.")
+  Stmt(kind: FuncStmt, funName: name, funBody: p.functionBody("function"))
 
 proc ifStmt(p): Stmt = 
   p.consume(LeftParen, "Expect '(' after 'if'.")
@@ -310,26 +362,45 @@ proc forStmt(p): Stmt =
     # Add var initializer in the block before the loop body
     result = Stmt(kind: BlockStmt, blockStmts: @[init, result])
 
+proc returnStmt(p): Stmt = 
+  # returnStmt → "return" expression? ";" ;
+  result = Stmt(kind: ReturnStmt, retKwd: p.previous())
+  # If we have a return value
+  if not p.match(Semicolon):
+    result.retVal = p.expression()
+  
+  p.consume(Semicolon, "Expect ';' after return expression;")
+
 proc statement(p): Stmt = 
   try:
     inc p.loopDepth
     if p.match(For): return p.forStmt()
-    if p.match(While): return p.whileStmt()
+    elif p.match(While): return p.whileStmt()
   finally:
     dec p.loopDepth
-  if p.match(If): return p.ifStmt()
-  if p.match(Print): return p.printStmt()
-  
-  if p.match(Break): return p.breakStmt()
+  result = if p.match(If): p.ifStmt()
+  elif p.match(Print): p.printStmt()
+  elif p.match(Break): p.breakStmt()
+  elif p.match(Return): p.returnStmt()
+  # New block {}
   elif p.match(LeftBrace):
-    return Stmt(kind: BlockStmt, blockStmts: p.blockStmts())
-  return p.expressionStmt()
+    Stmt(kind: BlockStmt, blockStmts: p.blockStmts())
+  else:
+    p.expressionStmt()
 
 proc declaration(p): Stmt = 
+  #[
+    declaration → funDecl
+            | varDecl
+            | statement ;
+  ]#
   try:
     if p.match(Var):
-      return p.varDeclaration()
-    return p.statement()
+      result = p.varDeclaration()
+    elif p.match(Fun):
+      result = p.function("function")
+    else:
+      result = p.statement()
   except ParseError as error:
     p.synchronize()
 

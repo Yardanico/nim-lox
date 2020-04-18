@@ -1,0 +1,99 @@
+var a = 0;
+var b = 1;
+
+for (var i = 0; i <= 50; i = i + 1) {
+  print "Fib[" + i + "]=" + a;
+  var temp = a;
+  a = b + a;
+  b = temp;
+}
+
+fun fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 2) + fibonacci(n - 1);
+}
+
+for (var i = 0; i < 20; i = i + 1) {
+  print "Fib[" + i + "]=" + fibonacci(i);
+}
+
+fun sayHi(first, last) {
+  print "Hi, " + first + " " + last + "!";
+}
+
+sayHi("Dear", "Reader");
+// Use two built-in funcs at the same time :P
+# Yes tyest
+echo(clock());
+
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+var counter = makeCounter();
+counter(); // "1".
+counter(); // "2".
+
+print true ? false ? true : "hello" : "world";
+var a = "global a";
+var b = "global b";
+var c = "global c";
+{
+  var a = "outer a";
+  var b = "outer b";
+  {
+    var a = "inner a";
+    print a;
+    print b;
+    print c;
+  }
+  print a;
+  print b;
+  print c;
+}
+print a;
+print b;
+print c;
+
+print true ? false ? true : "hello" : "world";
+
+var pi = 3.14;
+print pi * 2;
+print pi / 2;
+print pi * pi;
+
+/* multiline
+comment
+yes */
+
+// one-line comment
+
+pi = 2.21;
+print pi;
+
+var a = 1;
+{
+  var a = a + 2;
+  print a;
+}
+
+/* asdasd
+asdasdasd
+afs
+
+afsaf
+
+afsfsa
+f
+f
+*/
+
+var a = "hello";
+
+print "hello";

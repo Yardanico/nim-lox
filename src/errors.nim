@@ -1,12 +1,15 @@
 import strformat
 
-import tokens
+import types, tokens
 
 
 type  
   RuntimeError* = ref object of ValueError
     tok*: Token
+  # TODO: Rename these to something else?
   BreakError* = ref object of RuntimeError
+  ReturnError* = ref object of RuntimeError
+    value*: LoxValue
 
 var hadSyntaxError* = false
 var hadRuntimeError* = false
