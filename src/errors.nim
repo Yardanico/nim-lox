@@ -14,18 +14,24 @@ type
 var hadSyntaxError* = false
 var hadRuntimeError* = false
 
-proc report*(line: int, where, msg: string) = 
-  echo fmt"[line {line}] Error{where}: {msg}"
-  hadSyntaxError = true
-
-proc error*(tok: Token, msg: string) = 
-  if tok.kind == Eof:
-    report(tok.line, " at end", msg)
+proc report*(line: int, where, msg: string, isWarn: bool) = 
+  if not isWarn:
+    echo fmt"[line {line}] Error{where}: {msg}"
+    hadSyntaxError = true
   else:
-    report(tok.line, " at '" & tok.lexeme & "'", msg)
+    echo fmt"[line {line}] Warning{where}: {msg}"
 
-proc error*(line: int, msg: string) = 
-  report(line, "", msg)
+proc error*(tok: Token, msg: string, isWarn = false) = 
+  if tok.kind == Eof:
+    report(tok.line, " at end", msg, isWarn)
+  else:
+    report(tok.line, " at '" & tok.lexeme & "'", msg, isWarn)
+
+proc warning*(tok: Token, msg: string) = 
+  error(tok, msg, true)
+
+proc error*(line: int, msg: string, isWarn = false) = 
+  report(line, "", msg, isWarn)
 
 proc runtimeError*(error: RuntimeError) = 
   echo &"{error.msg}\n[line {error.tok.line}]"

@@ -7,12 +7,14 @@ proc run(source: string, env = newEnvironment()) =
   let tokens = scanner.scanTokens()
   let parser = newParser(tokens)
   let stmts = parser.parse()
+  # If parsing failed
+  if (hadSyntaxError): return
 
   let interpreter = newInterpreter(env)
 
   let res = newResolver(interpreter)
   res.resolve(stmts)
-  
+  # If resolver pass failed
   if (hadSyntaxError): return
 
   interpreter.interpret(stmts)

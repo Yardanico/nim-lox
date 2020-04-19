@@ -10,9 +10,14 @@ type
   LoopType = enum
     LoopNone, LoopWhile
 
+  VarData = object
+    varTok: Token
+    isDecl: bool
+    isUsed: bool
+
   Resolver* = ref object
     interp: Interpreter
-    scopes: Deque[TableRef[string, bool]]
+    scopes: Deque[TableRef[string, VarData]]
     curFunc: FunctionType
     curLoop: LoopType
 
@@ -26,15 +31,20 @@ using
 # popFirst
 proc newResolver*(i): Resolver = 
   result = Resolver(interp: i)
-  result.scopes = initDeque[TableRef[string, bool]]()
+  result.scopes = initDeque[TableRef[string, VarData]]()
 
 proc visit(r, s)
 proc visit(r, e)
 
 proc beginScope(r) = 
-  r.scopes.addFirst(newTable[string, bool]())
+  r.scopes.addFirst(newTable[string, VarData]())
 
-proc endScope(r) = 
+proc endScope(r) =
+  for (name, usage) in r.scopes[0].pairs:
+    if not usage.isUsed:
+      errors.warning(
+        usage.varTok, "Variable was declared but never used."
+      )
   r.scopes.popFirst()
 
 proc resolve(r, s) = 
@@ -48,8 +58,6 @@ template withScope(r; body: untyped): untyped =
   body
   r.endScope()
 
-
-
 proc resolve*(r; stmts: seq[Stmt]) = 
   for stmt in stmts:
     r.resolve(stmt)
@@ -57,19 +65,20 @@ proc resolve*(r; stmts: seq[Stmt]) =
 proc resolveLocal(r, e; name: Token) = 
   for i in 0 ..< r.scopes.len:
     if name.lexeme in r.scopes[i]:
+      r.scopes[i][name.lexeme].isUsed = true
       r.interp.resolve(e, i)
       break
   # Assume it is global
 
 proc define(r; name: Token) = 
   if r.scopes.len != 0:
-    r.scopes[0][name.lexeme] = true
+    r.scopes[0][name.lexeme].isDecl = true
 
 proc declare(r; name: Token) = 
   if r.scopes.len != 0:
     if name.lexeme in r.scopes.peekFirst():
-      errors.error(name, "Variable with this name is already declared in this scope.")
-    r.scopes[0][name.lexeme] = false
+      errors.error(name, "Variable is already declared in this scope.")
+    r.scopes[0][name.lexeme] = VarData(varTok: name, isDecl: false)
 
 proc visitVarStmt(r, s) = 
   r.declare(s.varName)
@@ -144,8 +153,11 @@ proc visit(r, s) =
 
 proc visitVariableExpr(r, e) = 
   let n = e.varName.lexeme
-  if r.scopes.len != 0 and n in r.scopes[0] and r.scopes[0][n] == false:
-    errors.error(e.varName, "Cannot read local variable in its own initializer.")
+  if r.scopes.len != 0 and n in r.scopes[0]:
+    if r.scopes[0][n].isDecl == false:
+      errors.error(e.varName, "Cannot read local variable in its own initializer.")
+    else:
+      r.scopes[0][n].isUsed = true
   r.resolveLocal(e, e.varName)
 
 proc visitAssignExpr(r, e) = 
