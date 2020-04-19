@@ -1,3 +1,5 @@
+import hashes
+
 type
   TokenKind* = enum
     # Single-character tokens
@@ -29,6 +31,16 @@ type
     else: discard
     lexeme*: string
     line*: int
+
+proc hash*(t: Token): Hash =
+  var h: Hash = 0
+  case t.kind
+  of String: h = h !& hash(t.str)
+  of Number: h = h !& hash(t.num)
+  else: discard
+  h = h !& hash(t.lexeme)
+  h = h !& hash(t.line)
+  result = !$h
 
 proc `$`*(t: Token): string = 
   $t.kind & " " & t.lexeme

@@ -1,4 +1,4 @@
-import strformat
+import strformat, tables
 
 import ast, errors, tokens, env, types
 
@@ -15,14 +15,17 @@ proc isTruthy(v): bool =
   elif v.kind == BoolVal: v.boolVal
   else: true
 
+template bothKind(a, b, k): bool = 
+  a.kind == k and b.kind == k
+
 proc `==`(l, r): bool = 
   # Nil is only equal to nil
-  if l.kind == NilVal and r.kind == NilVal: true
+  if bothKind(l, r, NilVal): true
   # Comparing to Nil is always false otherwise
   elif l.kind == NilVal or r.kind == NilVal: false
-  elif l.kind == NumVal and r.kind == NumVal: l.numVal == r.numVal
-  elif l.kind == StrVal and r.kind == StrVal: l.strVal == r.strVal
-  elif l.kind == BoolVal and r.kind == BoolVal: l.boolVal == r.boolVal
+  elif bothKind(l, r, NumVal): l.numVal == r.numVal
+  elif bothKind(l, r, StrVal): l.strVal == r.strVal
+  elif bothKind(l, r, BoolVal): l.boolVal == r.boolVal
   # Otherwise false
   else: false
 
@@ -117,10 +120,24 @@ proc visitUnary(i, e): LoxValue =
 proc visitAssignExpr(i, e): LoxValue = 
   result = i.visit(e.asgnVal)
 
-  i.env.assign(e.asgnName, result)
+  let dist = i.locals.getOrDefault(e, -1)
+  if dist != -1:
+    i.env.assignAt(dist, e.asgnName, result)
+  else:
+    i.globals.assign(e.asgnName, result)
+
+  #i.env.assign(e.asgnName, result)
+
+proc lookupVariable(i; t: Token, e): LoxValue = 
+  let dist = i.locals.getOrDefault(e, -1)
+  if dist != -1:
+    result = i.env.getAt(dist, t.lexeme)
+  else:
+    result = i.globals.get(t)
 
 proc visitVariableExpr(i, e): LoxValue = 
-  i.env.get(e.varName)
+  i.lookupVariable(e.varName, e)
+  #i.env.get(e.varName)
 
 proc visitLogicalExpr(i, e): LoxValue = 
   result = i.visit(e.logLeft)
@@ -233,6 +250,9 @@ proc visit(i, s)
 proc execute(i, s) =
   i.visit(s)
 
+proc resolve*(i, e; depth: int) = 
+  i.locals[e] = depth
+
 proc executeBlock(i; stmts: seq[Stmt], env: Environment) = 
   # Save previous environment
   let prev = i.env
@@ -291,30 +311,20 @@ proc interpret*(i; stmts: seq[Stmt]) =
     errors.runtimeError(err)
 
 proc defBuiltin(e: Environment, name: string, arity: int, p: LoxBuiltin) = 
-  #let callable = 
-  #let val = LoxValue(kind: CallableVal, calVal: callable)
-  e.define(name, LoxValue(kind: CallableVal, calVal: LoxCallable(
+  let callable = LoxValue(kind: CallableVal, calVal: LoxCallable(
         kind: Builtin,
         bName: name,
         arity: arity,
         bCall: p,
         env: e
-      )))
-  #[
-  e.define(name, LoxValue(kind: CallableVal,
-      calVal: LoxCallable(
-        kind: Builtin,
-        bName: name,
-        arity: arity,
-        bCall: p,
-        env: e
-      )
-  ))]#
+      ))
+  e.define(name, callable)
 
 import times
 
 proc newInterpreter*(env: Environment): Interpreter = 
   result = Interpreter(globals: env)
+  result.locals = newTable[Expr, int]()
 
   # Define some built-ins
   result.globals.defBuiltin(

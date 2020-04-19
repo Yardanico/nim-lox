@@ -1,6 +1,6 @@
 import os
 
-import errors, scanner, parser, interpreter, env
+import errors, scanner, parser, interpreter, env, resolver
 
 proc run(source: string, env = newEnvironment()) = 
   let scanner = newScanner(source)
@@ -8,9 +8,11 @@ proc run(source: string, env = newEnvironment()) =
   let parser = newParser(tokens)
   let stmts = parser.parse()
 
-  
   let interpreter = newInterpreter(env)
 
+  let res = newResolver(interpreter)
+  res.resolve(stmts)
+  
   if (hadSyntaxError): return
 
   interpreter.interpret(stmts)

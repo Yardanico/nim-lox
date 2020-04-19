@@ -4,7 +4,7 @@ type
   Parser = ref object
     tokens: seq[Token]
     current: int
-    loopDepth: int
+    #loopDepth: int
 
   ParseError* = ref object of ValueError
 
@@ -27,8 +27,8 @@ proc advance(p): Token {.discardable.} =
   return p.previous()
 
 proc check(p; kind: TokenKind): bool = 
-  if p.isAtEnd(): return
-  p.peek().kind == kind
+  result = if p.isAtEnd(): false
+  else: p.peek().kind == kind
 
 proc match(p; kinds: varargs[TokenKind]): bool = 
   for kind in kinds:
@@ -261,9 +261,9 @@ proc expressionStmt(p): Stmt =
 proc breakStmt(p): Stmt = 
   # break;
   p.consume(Semicolon, "Expect ';' after break statement.")
-  if p.loopDepth == 0:
-    errors.error(p.previous(), "'break' can only used in loop context.")
-  return Stmt(kind: BreakStmt)
+  #if p.loopDepth == 0:
+  #  errors.error(p.previous(), "'break' can only used in loop context.")
+  return Stmt(kind: BreakStmt, breakKwd: p.previous())
 
 proc varDeclaration(p): Stmt = 
   let name = p.consume(Identifier, "Expect variable name")
@@ -366,19 +366,19 @@ proc returnStmt(p): Stmt =
   # returnStmt → "return" expression? ";" ;
   result = Stmt(kind: ReturnStmt, retKwd: p.previous())
   # If we have a return value
-  if not p.match(Semicolon):
+  if not p.check(Semicolon):
     result.retVal = p.expression()
   
   p.consume(Semicolon, "Expect ';' after return expression;")
 
 proc statement(p): Stmt = 
-  try:
-    inc p.loopDepth
-    if p.match(For): return p.forStmt()
-    elif p.match(While): return p.whileStmt()
-  finally:
-    dec p.loopDepth
-  result = if p.match(If): p.ifStmt()
+  #try:
+    #inc p.loopDepth
+  result = if p.match(For): p.forStmt()
+  elif p.match(While): p.whileStmt()
+  #finally:
+    #dec p.loopDepth
+  elif p.match(If): p.ifStmt()
   elif p.match(Print): p.printStmt()
   elif p.match(Break): p.breakStmt()
   elif p.match(Return): p.returnStmt()

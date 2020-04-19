@@ -9,6 +9,7 @@ type
 
   Interpreter* = ref object
     env*, globals*: Environment
+    locals*: TableRef[Expr, int]
 
   LoxValueKind* = enum
     StrVal, NumVal, BoolVal, CallableVal, NilVal

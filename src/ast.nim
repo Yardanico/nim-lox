@@ -1,3 +1,5 @@
+import hashes
+
 import tokens
 
 type
@@ -9,7 +11,7 @@ type
   LiteralKind* = enum
     LitNum, LitStr, LitBool, LitNil
 
-  Expr* {.acyclic.} = ref object
+  Expr* = ref object
     case kind*: ExprKind
     # Assigning name to a value
     of Assign:
@@ -66,7 +68,7 @@ type
     IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt,
     BreakStmt
   
-  Stmt* {.acyclic.} = ref object
+  Stmt* = ref object
     case kind*: StmtKind
     of BlockStmt:
       blockStmts*: seq[Stmt]
@@ -93,9 +95,14 @@ type
     of WhileStmt:
       whileCond*: Expr
       whileBody*: Stmt
-    of BreakStmt: discard
+    of BreakStmt:
+      breakKwd*: Token
 
+proc hash*(e: Expr): Hash = 
+  result = hash(cast[pointer](e))
 
+proc hash*(s: Stmt): Hash = 
+  result = hash(cast[pointer](s))
 
 
 # Example from the end of chapter 5 for lisp-printing the AST

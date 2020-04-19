@@ -146,8 +146,8 @@ proc scanToken(s) =
   of '>': s.addToken(if s.match('='): GreaterEqual else: Greater)
   of '?': s.addToken(QuestionMark)
   of ':': s.addToken(Colon)
-  # Either a comment or a slash
   of '#': s.skipLine()
+  # Either a comment or a slash
   of '/':
     if s.match('/'): s.skipLine()
     # Multinline comment
