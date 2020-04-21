@@ -25,7 +25,7 @@ proc main =
   if (paramCount() == 0):
     repl()
   elif paramCount() == 1:
-    runFile(paramStr(2))
+    runFile(paramStr(1))
   else:
     stderr.write("Usage: nlox [path]\n");
 

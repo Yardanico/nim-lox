@@ -2,8 +2,21 @@ import value
 
 type
   Opcode* = enum
-    OpConstant = 0'u8, OpAdd, OpSubtract, 
-    OpMultiply, OpDivide, OpReturn, OpNegate
+    OpConstant = 0'u8, 
+    OpNil, 
+    OpTrue, 
+    OpFalse,
+    OpEqual, 
+    OpGreater, 
+    OpLess,
+    OpIndexGet,
+    OpAdd, 
+    OpSubtract, 
+    OpMultiply, 
+    OpDivide,
+    OpNot,
+    OpReturn, 
+    OpNegate
   
   Chunk* = ref object
     # Sequence of all opcodes
@@ -34,8 +47,8 @@ proc setLine*(c; line: int) =
     inc c.lines[^2]
   else:
     # Add new line count to the seq
-    c.lines.add(line)
     c.lines.add(1)
+    c.lines.add(line)
 
 proc writeChunk*(c; byt: uint8, line: int) = 
   c.code.add(byt)

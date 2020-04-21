@@ -1,3 +1,5 @@
+import lists, strformat
+
 import chunk, value, compiler
 
 type
@@ -7,6 +9,7 @@ type
     pc: int
     stack: array[256, Value]
     stackTop: int
+    objects: SinglyLinkedList[Obj]
   
   InterpretResult* = enum
     InterpretOk, InterpretCompileError, InterpretRuntimeError
@@ -15,12 +18,24 @@ var vm* = VM()
 
 proc resetStack() = 
   vm.stackTop = 0
+  vm.objects = initSinglyLinkedList[Obj]()
+
+proc runtimeError(msg: string) = 
+  stderr.write(msg)
+  stderr.write('\n')
+
+  let instr = vm.pc - vm.chunk.code.len - 1
+  let line = getLine(vm.chunk, instr)
+  stderr.write(&"[line {line}] in script\n")
 
 proc initVM*() = 
   resetStack()
 
 proc freeVM*() = 
+  # TODO: Freeing memory here (right now Nim's GC does it for us)
   discard
+  vm.objects = initSinglyLinkedList[Obj]()
+  #for obj in vm.objects:
 
 template top(): Value = 
   vm.stack[vm.stackTop]
@@ -33,6 +48,20 @@ proc pop(): Value =
   dec vm.stackTop
   result = vm.stack[vm.stackTop]
 
+proc peek(dist: int): Value = 
+  vm.stack[vm.stackTop - 1 - dist]
+
+proc isFalse(val: Value): bool = 
+  val.kind == ValNil or (val.kind == ValBool and not val.boolean)
+
+proc concatenate() = 
+  let b = pop().obj.str
+  let a = pop().obj.str
+
+  let res = stringObj(a & b)
+  vm.objects.append(res)
+  push(objVal(res))
+
 proc run*(): InterpretResult = 
   template readByte: untyped = 
     inc vm.pc
@@ -41,29 +70,77 @@ proc run*(): InterpretResult =
   template readConst: Value = 
     vm.chunk.consts.values[int(readByte())]
   
-  template binOp(op) = 
-    let b = pop()
-    let a = pop()
-    push(`op`(a, b))
+  template binOp(kind, op) = 
+    if not isNumber(peek(0)) or not isNumber(peek(1)):
+      runtimeError("Operands must be numbers.")
+      return InterpretRuntimeError
+    let b = pop().number
+    let a = pop().number
+    push(kind(`op`(a, b)))
+  
   while true:
+    # https://nim-lang.org/docs/manual.html#pragmas-computedgoto-pragma
+    {.computedGoto.}
     let instr = Opcode(readByte())
     case instr
     of OpReturn:
       # For printing stuff because we don't yet have "print" stmt
       echo pop()
       return InterpretOk
-    of OpConstant:
-      push(readConst())
+    of OpConstant: push(readConst())
+
+    of OpNil: push(nilVal())
+    of OpTrue: push(boolVal(true))
+    of OpFalse: push(boolVal(false))
+
+    of OpEqual:
+      let b = pop()
+      let a = pop()
+      push(boolVal(a == b))
+
     of OpNegate:
-      push(-pop())
+      if not isNumber(peek(0)):
+        runtimeError("Operand must be a number.")
+        return InterpretRuntimeError
+      push(numVal(-pop().number))
+    
+    of OpGreater:
+      binOp(boolVal, `>`)
+    
+    of OpLess:
+      binOp(boolVal, `<`)
+
     of OpAdd:
-      binOp(`+`)
-    of OpSubtract:
-      binOp(`-`)
-    of OpMultiply:
-      binOp(`*`)
-    of OpDivide:
-      binOp(`/`)
+      # String + string -> string
+      if isString(peek(0)) and isString(peek(1)):
+        concatenate()
+      # NUmber + number -> number
+      elif isNumber(peek(0)) and isNumber(peek(1)):
+        let b = pop().number
+        let a = pop().number
+        push(numVal(a + b))
+      else:
+        runtimeError("Operands must be two numbers or two strings.")
+        return InterpretRuntimeError
+    of OpSubtract: binOp(numVal, `-`)
+    of OpMultiply: binOp(numVal, `*`)
+    of OpDivide: binOp(numVal, `/`)
+    of OpNot:
+      push(boolVal(isFalse(pop())))
+    of OpIndexGet:
+      if not isNumber(peek(0)) or not isString(peek(1)):
+        runtimeError("Indexing is only supported for strings by numbers.")
+        return InterpretRuntimeError
+      let b = pop().number
+      # If the float number can't be safely converted to an int
+      if float(int(b)) != b:
+        runtimeError("You can only use whole numbers for indexing.")
+        return InterpretRuntimeError
+      let a = pop().obj.str
+      let res = stringObj($a[int(b)])
+      vm.objects.append(res)
+      push(objVal(res))
+      
     #else: discard
 
 proc interpret*(src: string): InterpretResult = 

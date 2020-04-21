@@ -40,6 +40,14 @@ proc disassembleInstruction(chunk: Chunk, offset: int): int =
   of OpSubtract: simpleInstruction("OP_SUBTRACT", offset)
   of OpMultiply: simpleInstruction("OP_MULTIPLY", offset)
   of OpDivide: simpleInstruction("OP_DIVIDE", offset)
+  of OpNil: simpleInstruction("OP_NIL", offset)
+  of OpTrue: simpleInstruction("OP_TRUE", offset)
+  of OpFalse: simpleInstruction("OP_FALSE", offset)
+  of OpNot: simpleInstruction("OP_NOT", offset)
+  of OpEqual: simpleInstruction("OP_EQUAL", offset)
+  of OpGreater: simpleInstruction("OP_GREATER", offset)
+  of OpLess: simpleInstruction("OP_LESS", offset)
+  of OpIndexGet: simpleInstruction("OP_INDEX_GET", offset)
   #else: 
   #  echo("Unknown opcode " & $instr & " ")
   #  offset + 1

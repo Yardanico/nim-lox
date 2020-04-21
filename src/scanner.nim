@@ -3,8 +3,12 @@ import strutils, parseutils
 type
   TokenKind* = enum
     # Single-character tokens
-    LeftParen, RightParen, LeftBrace, RightBrace,
-    Comma, Dot, Minus, Plus, Semicolon, Slash, Star
+    LeftParen, RightParen, 
+    LeftBrace, RightBrace,
+    LeftBracket, RightBracket,
+    Comma, 
+    Dot, Minus, Plus, 
+    Semicolon, Slash, Star
 
     # One or two character tokens
     Bang, BangEqual,
@@ -99,37 +103,39 @@ proc skipWhitespace =
         return
     else: return
 
-proc checkKeyword(start, len: int, rest: string, kind: TokenKind): TokenKind = 
-  if scanner.current - scanner.start == start + len and scanner.src[scanner.start+start..len] == rest:
-    result = kind
-  else: result = Identifier 
+proc checkKeyword(start: int, rest: static[string], kind: TokenKind): TokenKind = 
+  # TODO: Figure a better way to do this.
+  let add = if start == 1: 0 else: 1 
+  if scanner.src[scanner.start+start..scanner.start + rest.len + add] == rest:
+    kind
+  else: Identifier 
 
 proc identifierType(): TokenKind = 
   case scanner.src[scanner.start]
-  of 'a': checkKeyword(1, 2, "nd", And)
-  of 'c': checkKeyword(1, 4, "lass", Class)
-  of 'e': checkKeyword(1, 3, "lse", Else)
-  of 'i': checkKeyword(1, 1, "f", If)
-  of 'n': checkKeyword(1, 2, "il", Nil)
-  of 'o': checkKeyword(1, 1, "r", Or)
-  of 'p': checkKeyword(1, 4, "rint", Print)
-  of 'r': checkKeyword(1, 5, "eturn", Return)
-  of 's': checkKeyword(1, 4, "uper", Super)
+  of 'a': checkKeyword(1, "nd", And)
+  of 'c': checkKeyword(1, "lass", Class)
+  of 'e': checkKeyword(1, "lse", Else)
+  of 'i': checkKeyword(1, "f", If)
+  of 'n': checkKeyword(1, "il", Nil)
+  of 'o': checkKeyword(1, "r", Or)
+  of 'p': checkKeyword(1, "rint", Print)
+  of 'r': checkKeyword(1, "eturn", Return)
+  of 's': checkKeyword(1, "uper", Super)
   of 't':
     if (scanner.current - scanner.start) > 1:
       case scanner.src[scanner.start+1]
-      of 'h': checkKeyword(2, 2, "is", This)
-      of 'r': checkKeyword(2, 2, "ue", True)
+      of 'h': checkKeyword(2, "is", This)
+      of 'r': checkKeyword(2, "ue", True)
       else: Identifier
     else: Identifier
-  of 'v': checkKeyword(1, 2, "ar", Var)
-  of 'w': checkKeyword(1, 4, "hile", While)
+  of 'v': checkKeyword(1, "ar", Var)
+  of 'w': checkKeyword(1, "hile", While)
   of 'f':
     if (scanner.current - scanner.start) > 1:
       case scanner.src[scanner.start+1]
-      of 'a': checkKeyword(2, 3, "lse", False)
-      of 'o': checkKeyword(2, 1, "r", For)
-      of 'u': checkKeyword(2, 1, "n", Fun)
+      of 'a': checkKeyword(2, "lse", False)
+      of 'o': checkKeyword(2, "r", For)
+      of 'u': checkKeyword(2, "n", Fun)
       else: Identifier
     else: Identifier
   
@@ -176,6 +182,8 @@ proc scanToken*: Token =
   of ')': return initToken(RightParen)
   of '{': return initToken(LeftBrace)
   of '}': return initToken(RightBrace)
+  of '[': return initToken(LeftBracket)
+  of ']': return initToken(RightBracket)
   of ';': return initToken(Semicolon)
   of ',': return initToken(Comma)
   of '.': return initToken(Dot)
