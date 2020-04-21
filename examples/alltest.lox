@@ -23,7 +23,6 @@ fun sayHi(first, last) {
 
 sayHi("Dear", "Reader");
 // Use two built-in funcs at the same time :P
-# Yes tyest
 echo(clock());
 
 fun makeCounter() {
@@ -96,3 +95,11 @@ f
 var a = "hello";
 
 print "hello";
+
+class Bacon {
+  eat() {
+    print "Crunch crunch crunch!";
+  }
+}
+
+Bacon().eat(); // Prints "Crunch crunch crunch!".
