@@ -93,11 +93,24 @@ proc makeConstant(val: Value): uint8 =
     return 0
 
 proc emitConstant(val: Value) = 
-  emitBytes(OpConstant, makeConstant(val))
+  ## Emits an OpConstant or OpConstantLong instruction and writes
+  ## the index of the constant in the next byte (or next 3 bytes)
+  if currentChunk().consts.values.len > 255:
+    emitByte(OpConstantLong)
+    let idx = addConstant(currentChunk(), val)
+    # TODO: maybe there's a better portable way of doing this?
+    # convert a small number to 3 bytes
+    var bytes = cast[array[3, uint8]](idx)
+    emitBytes(bytes[0], bytes[1])
+    emitByte(bytes[2])
+  else:
+    emitBytes(OpConstant, makeConstant(val))
+
 
 proc endCompiler() = 
   emitReturn()
-  disassembleChunk(currentChunk(), "code")
+  when defined(loxDebug):
+    disassembleChunk(currentChunk(), "code")
 
 proc substr(a, b: int): string = 
   parser.src[parser.prev.start + a .. parser.prev.start + b]

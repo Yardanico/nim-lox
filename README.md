@@ -11,4 +11,5 @@ The main difference from the C implementation is that this implementation
 does not manually allocate/deallocate memory (at least for now), since Nim has automatic garbage collection. It'll probably be needed in the future
 
 Completed optional exercises or stuff which is not in the original language:
-- String indexing by [] like ``"hello"[0]`` or ``"yes"[5+5*5-30+1]`` (done via an OP_INDEX_GET opcode)
+- String indexing by [] like ``"hello"[0]`` or ``"yes"[5+5*5-30+1]`` (done via an OpIndexGet opcode)
+- OpConstantLong when there are more than 255 constants in a chunk, uses 1 byte for opcode + 3 bytes for data = 4 bytes (Ch. 14 ex. 2)

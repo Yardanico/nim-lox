@@ -70,6 +70,10 @@ proc run*(): InterpretResult =
   template readConst: Value = 
     vm.chunk.consts.values[int(readByte())]
   
+  template readConstLong: Value = 
+    var arr = [readByte(), readByte(), readByte()]
+    vm.chunk.consts.values[cast[int](arr)]
+
   template binOp(kind, op) = 
     if not isNumber(peek(0)) or not isNumber(peek(1)):
       runtimeError("Operands must be numbers.")
@@ -85,9 +89,12 @@ proc run*(): InterpretResult =
     case instr
     of OpReturn:
       # For printing stuff because we don't yet have "print" stmt
-      echo pop()
+      let val = pop()
+      when defined(loxDebug):
+        echo "Returned ", val
       return InterpretOk
     of OpConstant: push(readConst())
+    of OpConstantLong: push(readConstLong())
 
     of OpNil: push(nilVal())
     of OpTrue: push(boolVal(true))
@@ -148,7 +155,6 @@ proc interpret*(src: string): InterpretResult =
 
   if not compile(src, chunk):
     return InterpretCompileError
-  
   vm.chunk = chunk
   vm.pc = 0
 

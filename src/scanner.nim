@@ -1,4 +1,4 @@
-import strutils, parseutils
+import strutils
 
 type
   TokenKind* = enum

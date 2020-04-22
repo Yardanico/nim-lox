@@ -10,7 +10,6 @@ proc repl =
     if not stdin.readLine(line):
       stdout.write("\n")
       break
-    
     echo interpret(line)
 
 proc runFile(path: string) = 
@@ -27,6 +26,7 @@ proc main =
   elif paramCount() == 1:
     runFile(paramStr(1))
   else:
-    stderr.write("Usage: nlox [path]\n");
+    stderr.write("Usage: nlox [path]\n")
+  repl()
 
 main()

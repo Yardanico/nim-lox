@@ -2,20 +2,42 @@ import value
 
 type
   Opcode* = enum
-    OpConstant = 0'u8, 
+    ## Stores a constant in a value array
+    ## Next byte after that opcode is the index of the value in the array
+    OpConstant = 0'u8,
+    ## Stores a constant in a value array
+    ## Next 3 (24 bits) bytes after that opcode are 
+    ## the index of the value in the array so that opcode + number = 32 bits
+    OpConstantLong,
+    ## Represents nil (no value)
     OpNil, 
+    ## Represents true
     OpTrue, 
+    ## Represents false
     OpFalse,
+    ## Pops two operands from the stack and checks if they're equal
     OpEqual, 
+    ## Pops two operands from the stack and checks if the first operand 
+    ## is greater than the second one
     OpGreater, 
+    ## Same as OpGreater but in the other direction
     OpLess,
+    ## Pops two operands from the stack (a string and a number) and tries
+    ## to access character in the string by the index of the first operand
     OpIndexGet,
+    ## Pops two operands and adds them
     OpAdd, 
+    ## Pops two operands and subtracts them
     OpSubtract, 
+    ## Pops two operands and multiplies them
     OpMultiply, 
+    ## Pops two operands and divides them
     OpDivide,
+    ## Pops one (bool) operand
     OpNot,
+    ## Returns the first value on the stack
     OpReturn, 
+    ## Negates one (number) operand
     OpNegate
   
   Chunk* = ref object
