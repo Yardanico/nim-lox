@@ -1,4 +1,4 @@
-import strutils
+import std / strutils
 
 type
   TokenKind* = enum
@@ -31,174 +31,169 @@ type
     start*, len*: int
     line*: int
   
-  Scanner = object
+  Scanner* = ref object
     src: string
     start, current: int
     line: int
 
+using
+  s: Scanner
 
-var scanner = Scanner()
-
-proc initScanner*(src: string) = 
-  scanner.start = 0
-  scanner.src = src
-  scanner.current = 0
-  scanner.line = 1
-
-proc isAtEnd(): bool = 
-  scanner.current > scanner.src.len-1
-
-proc advance: char {.discardable.} = 
-  inc scanner.current
-  if scanner.current - 1 > scanner.src.len-1: '\0'
-  else: scanner.src[scanner.current - 1]
-
-proc peek: char = 
-  if scanner.current > scanner.src.len-1: '\0'
-  else: scanner.src[scanner.current]
-
-proc peekNext: char = 
-  if isAtEnd(): '\0'
-  else: scanner.src[scanner.current+1]
-
-proc match(expected: char): bool = 
-  if isAtEnd(): false
-  elif scanner.src[scanner.current] != expected:
-    false
-  else:
-    inc scanner.current
-    true
-  
-proc initToken(kind: TokenKind): Token = 
-  Token(
-    kind: kind, 
-    start: scanner.start, 
-    len: scanner.current - scanner.start,
-    line: scanner.line
+proc newScanner*(src: string): Scanner =
+  Scanner(
+    start: 0,
+    src: src,
+    current: 0,
+    line: 1
   )
 
-proc errorToken(msg: string): Token = 
+proc getSlice(s): string = 
+  s.src[s.start ..< s.current]
+
+proc isAtEnd(s): bool = 
+  s.current > s.src.len-1
+
+proc advance(s): char {.discardable.} = 
+  inc s.current
+  if s.current - 1 > s.src.len-1: '\0'
+  else: s.src[s.current - 1]
+
+proc peek(s): char = 
+  if s.current > s.src.len-1: '\0'
+  else: s.src[s.current]
+
+proc peekNext(s): char = 
+  if s.isAtEnd(): '\0'
+  else: s.src[s.current+1]
+
+proc match(s; expected: char): bool = 
+  if s.isAtEnd(): false
+  elif s.src[s.current] != expected:
+    false
+  else:
+    inc s.current
+    true
+  
+proc initToken(s; kind: TokenKind): Token = 
+  Token(
+    kind: kind, 
+    start: s.start, 
+    len: s.current - s.start,
+    line: s.line
+  )
+
+proc errorToken(s; msg: string): Token = 
   Token(
     kind: Error,
     # TODO: token error message
     start: 0,
     len: 10,
-    line: scanner.line
+    line: s.line
   )
 
-proc skipWhitespace = 
+proc skipWhitespace(s) = 
   while true:
-    let c = peek()
+    let c = s.peek()
     case c
-    of ' ', '\r', '\t': advance()
+    of ' ', '\r', '\t': s.advance()
     of '\n':
-      inc scanner.line
-      advance()
+      inc s.line
+      s.advance()
     of '/':
-      if peekNext() == '/':
+      if s.peekNext() == '/':
         # A comment goes until the EOL
-        while peek() != '\n' and not isAtEnd():
-          advance()
+        while s.peek() != '\n' and not s.isAtEnd():
+          s.advance()
       else:
-        return
-    else: return
+        break
+    else: 
+      break
 
-proc checkKeyword(start: int, rest: static[string], kind: TokenKind): TokenKind = 
-  # TODO: Figure a better way to do this.
-  let add = if start == 1: 0 else: 1 
-  if scanner.src[scanner.start+start..scanner.start + rest.len + add] == rest:
-    kind
-  else: Identifier 
-
-proc identifierType(): TokenKind = 
-  case scanner.src[scanner.start]
-  of 'a': checkKeyword(1, "nd", And)
-  of 'c': checkKeyword(1, "lass", Class)
-  of 'e': checkKeyword(1, "lse", Else)
-  of 'i': checkKeyword(1, "f", If)
-  of 'n': checkKeyword(1, "il", Nil)
-  of 'o': checkKeyword(1, "r", Or)
-  of 'p': checkKeyword(1, "rint", Print)
-  of 'r': checkKeyword(1, "eturn", Return)
-  of 's': checkKeyword(1, "uper", Super)
-  of 't':
-    if (scanner.current - scanner.start) > 1:
-      case scanner.src[scanner.start+1]
-      of 'h': checkKeyword(2, "is", This)
-      of 'r': checkKeyword(2, "ue", True)
-      else: Identifier
-    else: Identifier
-  of 'v': checkKeyword(1, "ar", Var)
-  of 'w': checkKeyword(1, "hile", While)
-  of 'f':
-    if (scanner.current - scanner.start) > 1:
-      case scanner.src[scanner.start+1]
-      of 'a': checkKeyword(2, "lse", False)
-      of 'o': checkKeyword(2, "r", For)
-      of 'u': checkKeyword(2, "n", Fun)
-      else: Identifier
-    else: Identifier
-  
+proc identifierType(s): TokenKind = 
+  let ident = s.getSlice()
+  case ident
+  of "and": And
+  of "class": Class
+  of "else": Else
+  of "if": If
+  of "nil": Nil
+  of "or": Or
+  of "print": Print
+  of "return": Return
+  of "super": Super
+  of "this": This
+  of "true": True
+  of "var": Var
+  of "while": While
+  of "false": False
+  of "for": For
+  of "fun": Fun  
   else: Identifier
 
-proc identifier: Token = 
-  while isAlphaAscii(peek()) or isDigit(peek()):
-    advance()
+proc identifier(s): Token = 
+  while s.peek().isAlphaAscii() or s.peek().isDigit():
+    s.advance()
   
-  initToken(identifierType())
+  s.initToken(s.identifierType())
 
-proc number: Token = 
-  while isDigit(peek()):
-    advance()
+proc number(s): Token = 
+  while s.peek().isDigit():
+    s.advance()
   
-  if peek() == '.' and isDigit(peekNext()):
-    advance()
-    while (isDigit(peek())): advance()
+  if s.peek() == '.' and s.peekNext().isDigit():
+    s.advance()
+    while s.peek().isDigit(): s.advance()
   
-  initToken(Number)
+  s.initToken(Number)
 
-proc string: Token = 
-  while not isAtEnd() and peek() != '"':
-    if peek() == '\n':
-      inc scanner.line
-    advance()
+proc strlit(s): Token = 
+  while not s.isAtEnd() and s.peek() != '"':
+    if s.peek() == '\n':
+      inc s.line
+    s.advance()
   
-  if isAtEnd():
-    return errorToken("Unterminated string.")
+  result = if s.isAtEnd():
+    s.errorToken("Unterminated string.")
+  else:
+    s.advance()
+    s.initToken(String)
 
-  advance()
-  initToken(String)
-
-proc scanToken*: Token = 
-  skipWhitespace()
-  scanner.start = scanner.current
-  let c = advance()
-  if isAlphaAscii(c): return identifier()
-  elif isDigit(c):
-    return number()
-
-  case c
-  of '(': return initToken(LeftParen)
-  of ')': return initToken(RightParen)
-  of '{': return initToken(LeftBrace)
-  of '}': return initToken(RightBrace)
-  of '[': return initToken(LeftBracket)
-  of ']': return initToken(RightBracket)
-  of ';': return initToken(Semicolon)
-  of ',': return initToken(Comma)
-  of '.': return initToken(Dot)
-  of '-': return initToken(Minus)
-  of '+': return initToken(Plus)
-  of '/': return initToken(Slash)
-  of '*': return initToken(Star)
-  of '!': return initToken(if match('='): BangEqual else: Bang)
-  of '=': return initToken(if match('='): EqualEqual else: EqualEqual)
-  of '<': return initToken(if match('='): LessEqual else: Less)
-  of '>': return initToken(if match('='): GreaterEqual else: Greater)
-  of '"': return string()
-  else: discard
-
-  if isAtEnd():
-    return initToken(Eof)
-
-  result = errorToken("Unexpected character.")
+proc scanToken*(s): Token = 
+  s.skipWhitespace()
+  s.start = s.current
+  let c = s.advance()
+  let typ = case c
+  of Letters: Identifier
+  of Digits: Number
+  of '(': LeftParen
+  of ')': RightParen
+  of '{': LeftBrace
+  of '}': RightBrace
+  of '[': LeftBracket
+  of ']': RightBracket
+  of ';': Semicolon
+  of ',': Comma
+  of '.': Dot
+  of '-': Minus
+  of '+': Plus
+  of '/': Slash
+  of '*': Star
+  of '!': 
+    if s.match('='): BangEqual else: Bang
+  of '=': 
+    if s.match('='): EqualEqual else: Equal
+  of '<': 
+    if s.match('='): LessEqual else: Less
+  of '>':
+    if s.match('='): GreaterEqual else: Greater
+  of '"': String
+  else: 
+    if s.isAtEnd(): Eof
+    else: Error
+  
+  case typ
+  of Identifier: s.identifier()
+  of Number: s.number()
+  of String: s.strlit()
+  of Error: s.errorToken("Unexpected character.") 
+  else: s.initToken(typ)

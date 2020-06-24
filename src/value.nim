@@ -1,4 +1,4 @@
-import strutils
+import std / strutils
 
 type
   ValueKind* = enum

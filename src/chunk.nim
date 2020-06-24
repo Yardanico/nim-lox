@@ -54,7 +54,7 @@ proc newChunk*(): Chunk =
 
 proc getLine*(c; i: int): int = 
   var curInstr = 0
-  for n in countup(0, c.lines.len-1, 2):
+  for n in countup(0, c.lines.len - 1, 2):
     let cnt = c.lines[n]
     let line = c.lines[n + 1]
 

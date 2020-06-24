@@ -1,4 +1,4 @@
-import lists, strformat
+import std / [lists, strformat]
 
 import chunk, value, compiler
 

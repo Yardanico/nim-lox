@@ -1,5 +1,4 @@
-import os
-
+import std / os
 import vm
 
 proc repl = 
@@ -14,16 +13,19 @@ proc repl =
 
 proc runFile(path: string) = 
   var src = readFile(path)
-  let result = interpret(src)
+  let res = interpret(src)
 
-  if (result == InterpretCompileError): quit(65)
-  elif (result == InterpretRuntimeError): quit(70)
+  if res == InterpretCompileError: 
+    quit "Compilation failed!"
+  elif res == InterpretRuntimeError: 
+    quit "Runtime error!"
 
 proc main = 
   initVM()
-  if (paramCount() == 0):
+  case paramCount()
+  of 0:
     repl()
-  elif paramCount() == 1:
+  of 1:
     runFile(paramStr(1))
   else:
     stderr.write("Usage: nlox [path]\n")

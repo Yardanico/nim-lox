@@ -1,10 +1,10 @@
-import strformat, strutils
+import std / [strformat, strutils]
 
 import chunk, value
 
 proc disassembleInstruction(chunk: Chunk, offset: int): int
 
-proc disassembleChunk*(chunk: Chunk, name: string) = 
+proc disassemble*(chunk: Chunk, name: string) = 
   ## Disassembles a Chunk and prints all opcodes
   ## in a neatly-formatted way
   echo fmt"== {name} =="

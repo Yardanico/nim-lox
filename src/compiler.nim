@@ -1,7 +1,6 @@
-import strformat, strutils
+import std / [strformat, strutils]
 
 import scanner, chunk, value, debug
-
 
 type
   Parser = object
@@ -22,24 +21,32 @@ type
     PrecCall,  # . ()
     PrecPrimary
   
-  ParseFn = proc(): void
+  ParseFn = proc(comp: Compiler): void
 
   ParseRule = ref object
     prefix, infix: ParseFn
     precedence: Precedence
+  
+  Compiler = ref object
+    parser: Parser
+    scanner: Scanner
+    compilingChunk: Chunk
+
+using
+  comp: Compiler
+
+proc newCompiler(src: string): Compiler = 
+  Compiler(
+    parser: Parser(src: src),
+    scanner: newScanner(src)
+  )
 
 template makeRule(pref, inf: ParseFn, prec: Precedence): ParseRule = 
   ParseRule(prefix: pref, infix: inf, precedence: prec)
 
-var parser* = Parser()
-var compilingChunk*: Chunk
-
-proc currentChunk(): Chunk = 
-  compilingChunk
-
-proc errorAt(tok: Token, msg: string) = 
-  if (parser.panicMode): return
-  parser.panicMode = true
+proc errorAt(comp; tok: Token, msg: string) = 
+  if (comp.parser.panicMode): return
+  comp.parser.panicMode = true
   stderr.write(fmt"[line {tok.line}] Error")
 
   if tok.kind == Eof:
@@ -47,133 +54,139 @@ proc errorAt(tok: Token, msg: string) =
   elif tok.kind == Error:
     discard
   else:
-    stderr.write(" at '" & parser.src[tok.start..tok.start+tok.len-1] & '\'')
+    stderr.write(" at '" & comp.parser.src[tok.start..tok.start+tok.len-1] & '\'')
   
   stderr.write(&": {msg}\n")
-  parser.hadError = true
+  comp.parser.hadError = true
 
-proc error(msg: string) = 
-  errorAt(parser.prev, msg)
+proc error(comp; msg: string) = 
+  comp.errorAt(comp.parser.prev, msg)
 
-proc errorAtCurrent(msg: string) = 
-  errorAt(parser.cur, msg)
+proc errorAtCurrent(comp; msg: string) = 
+  comp.errorAt(comp.parser.cur, msg)
 
-proc advance = 
-  parser.prev = parser.cur
+proc advance(comp) = 
+  comp.parser.prev = comp.parser.cur
 
   while true:
-    parser.cur = scanToken()
-    if parser.cur.kind != Error: break
+    comp.parser.cur = comp.scanner.scanToken()
+    if comp.parser.cur.kind != Error: break
 
     #errorAtCurrent(parser.cur.start)
-    errorAtCurrent("error here")
+    comp.errorAtCurrent("error here")
 
-proc consume(kind: TokenKind, msg: string) = 
-  if parser.cur.kind == kind:
-    advance()
+proc consume(comp; kind: TokenKind, msg: string) = 
+  if comp.parser.cur.kind == kind:
+    comp.advance()
   else:
     #errorAtCurrent(msg)
-    errorAtCurrent(msg)
+    comp.errorAtCurrent(msg)
 
-proc emitByte(byt: uint8 | Opcode) = 
-  writeChunk(currentChunk(), uint8(byt), parser.prev.line)
+proc emitByte(comp; byt: uint8 | Opcode) = 
+  writeChunk(comp.compilingChunk, uint8(byt), comp.parser.prev.line)
 
-proc emitBytes(byt1: uint8 | Opcode, byt2: uint8 | Opcode) = 
-  emitByte(uint8(byt1))
-  emitByte(uint8(byt2))
+proc emitBytes(comp; byt1: uint8 | Opcode, byt2: uint8 | Opcode) = 
+  comp.emitByte(uint8(byt1))
+  comp.emitByte(uint8(byt2))
 
-proc emitReturn() = 
-  emitByte(byte(OpReturn))
+proc emitReturn(comp) = 
+  comp.emitByte(byte(OpReturn))
 
-proc makeConstant(val: Value): uint8 = 
-  result = uint8(addConstant(currentChunk(), val))
+proc makeConstant(comp; val: Value): uint8 = 
+  result = uint8 comp.compilingChunk.addConstant(val)
 
   if result > uint8.high:
-    error("Too many constants in one chunk.")
-    return 0
+    comp.error("Too many constants in one chunk.")
+    result = 0
 
-proc emitConstant(val: Value) = 
+proc emitConstant(comp; val: Value) = 
   ## Emits an OpConstant or OpConstantLong instruction and writes
   ## the index of the constant in the next byte (or next 3 bytes)
-  if currentChunk().consts.values.len > 255:
-    emitByte(OpConstantLong)
-    let idx = addConstant(currentChunk(), val)
+  if comp.compilingChunk.consts.values.len > 255:
+    comp.emitByte(OpConstantLong)
+    let idx = comp.compilingChunk.addConstant(val)
     # TODO: maybe there's a better portable way of doing this?
     # convert a small number to 3 bytes
     var bytes = cast[array[3, uint8]](idx)
-    emitBytes(bytes[0], bytes[1])
-    emitByte(bytes[2])
+    comp.emitBytes(bytes[0], bytes[1])
+    comp.emitByte(bytes[2])
   else:
-    emitBytes(OpConstant, makeConstant(val))
+    comp.emitBytes(OpConstant, comp.makeConstant(val))
 
 
-proc endCompiler() = 
-  emitReturn()
+proc endCompiler(comp) = 
+  comp.emitReturn()
   when defined(loxDebug):
-    disassembleChunk(currentChunk(), "code")
+    comp.compilingChunk.disassemble("code")
 
-proc substr(a, b: int): string = 
-  parser.src[parser.prev.start + a .. parser.prev.start + b]
+proc substr(comp; a, b: int): string = 
+  comp.parser.src[comp.parser.prev.start + a .. comp.parser.prev.start + b]
 
-proc expression
+proc expression(comp)
 proc getRule(kind: TokenKind): ParseRule
-proc parsePrecedence(prec: Precedence)
+proc parsePrecedence(comp; prec: Precedence)
 
 
-proc binary = 
-  let opType = parser.prev.kind
+proc binary(comp) = 
+  let opType = comp.parser.prev.kind
   var rule = getRule(opType)
-  parsePrecedence(Precedence(int(rule.precedence) + 1))
+  comp.parsePrecedence(Precedence(int(rule.precedence) + 1))
 
   case opType
-  of BangEqual: emitBytes(OpEqual, OpNot)
-  of EqualEqual: emitByte(OpEqual)
+  of BangEqual: comp.emitBytes(OpEqual, OpNot)
+  of EqualEqual: comp.emitByte(OpEqual)
   # Can be implemented as OpNot (OpLess or OpGreater)
-  of Greater: emitByte(OpGreater)
-  of GreaterEqual: emitBytes(OpLess, OpNot)
-  of Less: emitByte(OpLess)
-  of LessEqual: emitBytes(OpGreater, OpNot)
-  of Plus: emitByte(OpAdd)
+  of Greater: comp.emitByte(OpGreater)
+  of GreaterEqual: comp.emitBytes(OpLess, OpNot)
+  of Less: comp.emitByte(OpLess)
+  of LessEqual: comp.emitBytes(OpGreater, OpNot)
+  of Plus: comp.emitByte(OpAdd)
   # Can be implemented as OpAdd with a negative operand
-  of Minus: emitByte(OpSubtract)
-  of Star: emitByte(OpMultiply)
-  of Slash: emitByte(OpDivide)
-  else: return
+  of Minus: comp.emitByte(OpSubtract)
+  of Star: comp.emitByte(OpMultiply)
+  of Slash: comp.emitByte(OpDivide)
+  else: discard
 
-proc literal = 
-  case parser.prev.kind
-  of False: emitByte(OpFalse)
-  of Nil: emitByte(OpNil)
-  of True: emitByte(OpTrue)
-  else: discard # Unreachable
+proc literal(comp) = 
+  case comp.parser.prev.kind
+  of False: comp.emitByte(OpFalse)
+  of Nil: comp.emitByte(OpNil)
+  of True: comp.emitByte(OpTrue)
+  else: assert false
 
-proc grouping = 
-  expression()
-  consume(RightParen, "Expect ')' after expression.")
+proc grouping(comp) = 
+  comp.expression()
+  comp.consume(RightParen, "Expect ')' after expression.")
 
-proc number = 
-  let val = parseFloat(substr(0, parser.prev.len - 1))
-  emitConstant(numVal(val))
+proc number(comp) = 
+  let val = parseFloat(comp.substr(0, comp.parser.prev.len - 1))
+  comp.emitConstant(numVal(val))
 
-proc strval = 
+proc strval(comp) = 
   # Trim leading and trailing quotation marks
   # TODO: If need to translate \n and other escape sequences,
   # do it here.
-  emitConstant(objVal(stringObj(substr(1, parser.prev.len - 2))))
+  comp.emitConstant(
+    objVal(
+      stringObj(
+        comp.substr(1, comp.parser.prev.len - 2)
+      )
+    )
+  )
 
-proc unary = 
-  let opType = parser.prev.kind
+proc unary(comp) = 
+  let opType = comp.parser.prev.kind
 
-  parsePrecedence(PrecUnary)
+  comp.parsePrecedence(PrecUnary)
   case opType
-  of Bang: emitByte(OpNot)
-  of Minus: emitByte(OpNegate)
+  of Bang: comp.emitByte(OpNot)
+  of Minus: comp.emitByte(OpNegate)
   else: discard
 
-proc bracket = 
-  parsePrecedence(PrecTerm)
-  emitByte(OpIndexGet)
-  consume(RightBracket, "Expect closing ']' for indexing access.")
+proc bracket(comp) = 
+  comp.parsePrecedence(PrecTerm)
+  comp.emitByte(OpIndexGet)
+  comp.consume(RightBracket, "Expect closing ']' for indexing access.")
 
 var rules: array[TokenKind, ParseRule] = [
   makeRule(grouping, nil, PrecNone), # LeftParen
@@ -220,33 +233,30 @@ var rules: array[TokenKind, ParseRule] = [
   makeRule(nil, nil, PrecNone), # Eof
 ]
 
-proc parsePrecedence(prec: Precedence) = 
-  advance()
-  let prefixRule = getRule(parser.prev.kind).prefix
-
-  if prefixRule.isNil():
-    error("Expect expression")
-    return
-  prefixRule()
-  while (prec <= getRule(parser.cur.kind).precedence):
-    advance()
-    let infixRule = getRule(parser.prev.kind).infix
-    infixRule()
-
 proc getRule(kind: TokenKind): ParseRule = 
   rules[kind]
 
-proc expression = 
-  parsePrecedence(PrecAssignment)
+proc parsePrecedence(comp; prec: Precedence) = 
+  comp.advance()
+  let prefixRule = getRule(comp.parser.prev.kind).prefix
+
+  if prefixRule.isNil():
+    comp.error("Expect expression")
+    return
+  comp.prefixRule()
+  while (prec <= getRule(comp.parser.cur.kind).precedence):
+    comp.advance()
+    let infixRule = getRule(comp.parser.prev.kind).infix
+    comp.infixRule()
+
+proc expression(comp) = 
+  comp.parsePrecedence(PrecAssignment)
 
 proc compile*(src: string, chunk: Chunk): bool = 
-  initScanner(src)
-  compilingChunk = chunk
-  parser.hadError = false
-  parser.panicMode = false
-  parser.src = src
-  advance()
-  expression()
-  consume(Eof, "Expect end of expression.")
-  endCompiler()
-  return not parser.hadError
+  var c = newCompiler(src)
+  c.compilingChunk = chunk
+  c.advance()
+  c.expression()
+  c.consume(Eof, "Expect end of expression.")
+  c.endCompiler()
+  result = not c.parser.hadError
