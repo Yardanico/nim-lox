@@ -82,6 +82,16 @@ proc consume(comp; kind: TokenKind, msg: string) =
     #errorAtCurrent(msg)
     comp.errorAtCurrent(msg)
 
+proc check(comp; kind: TokenKind): bool = 
+  comp.parser.cur.kind == kind
+
+proc match(comp; kind: TokenKind): bool = 
+  result = if not comp.check(kind): 
+    false
+  else: 
+    comp.advance()
+    true
+
 proc emitByte(comp; byt: uint8 | Opcode) = 
   writeChunk(comp.compilingChunk, uint8(byt), comp.parser.prev.line)
 
@@ -252,11 +262,26 @@ proc parsePrecedence(comp; prec: Precedence) =
 proc expression(comp) = 
   comp.parsePrecedence(PrecAssignment)
 
+proc printStatement(comp) = 
+  comp.expression()
+  comp.consume(Semicolon, "Expect ';' after value.")
+  comp.emitByte(OpPrint)
+
+proc statement(comp) = 
+  if comp.match(Print):
+    comp.printStatement()
+
+proc declaration(comp) = 
+  comp.statement()
+
 proc compile*(src: string, chunk: Chunk): bool = 
   var c = newCompiler(src)
   c.compilingChunk = chunk
   c.advance()
-  c.expression()
-  c.consume(Eof, "Expect end of expression.")
+
+  while not c.match(Eof):
+    c.declaration()
+  #c.expression()
+  #c.consume(Eof, "Expect end of expression.")
   c.endCompiler()
   result = not c.parser.hadError

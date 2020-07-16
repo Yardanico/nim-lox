@@ -58,6 +58,7 @@ proc disassembleInstruction(chunk: Chunk, offset: int): int =
   of OpGreater: simpleInstruction("OP_GREATER", offset)
   of OpLess: simpleInstruction("OP_LESS", offset)
   of OpIndexGet: simpleInstruction("OP_INDEX_GET", offset)
+  of OpPrint: simpleInstruction("OP_PRINT", offset)
   #else: 
   #  echo("Unknown opcode " & $instr & " ")
   #  offset + 1

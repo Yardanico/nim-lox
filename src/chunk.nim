@@ -35,6 +35,8 @@ type
     OpDivide,
     ## Pops one (bool) operand
     OpNot,
+    ## Prints something
+    OpPrint,
     ## Returns the first value on the stack
     OpReturn, 
     ## Negates one (number) operand

@@ -88,10 +88,6 @@ proc run*(): InterpretResult =
     let instr = Opcode(readByte())
     case instr
     of OpReturn:
-      # For printing stuff because we don't yet have "print" stmt
-      let val = pop()
-      when defined(loxDebug):
-        echo "Returned ", val
       return InterpretOk
     of OpConstant: push(readConst())
     of OpConstantLong: push(readConstLong())
@@ -147,6 +143,9 @@ proc run*(): InterpretResult =
       let res = stringObj($a[int(b)])
       vm.objects.append(res)
       push(objVal(res))
+    
+    of OpPrint:
+      echo pop()
       
     #else: discard
 
